@@ -41,3 +41,27 @@ def patch_rows(table: str, params: dict, data: dict) -> list[dict]:
 
 def delete_rows(table: str, params: dict) -> None:
     _send("DELETE", f"{settings.supabase_url}/rest/v1/{table}", params=params)
+
+
+# ── Storage ────────────────────────────────────────────────
+
+def _storage(path: str) -> str:
+    return f"{settings.supabase_url}/storage/v1/{path}"
+
+
+def ensure_bucket(bucket: str) -> None:
+    """Create a private bucket if it does not exist yet."""
+    try:
+        _send("POST", _storage("bucket"), json={"id": bucket, "name": bucket, "public": False})
+    except SupabaseError as exc:
+        if "already exists" not in str(exc).lower() and "duplicate" not in str(exc).lower():
+            raise
+
+
+def upload_file(bucket: str, path: str, data: bytes, content_type: str) -> None:
+    _send("POST", _storage(f"object/{bucket}/{path}"), content=data, headers={"Content-Type": content_type})
+
+
+def signed_url(bucket: str, path: str, expires_in: int) -> str:
+    r = _send("POST", _storage(f"object/sign/{bucket}/{path}"), json={"expiresIn": expires_in}).json()
+    return _storage(r["signedURL"].lstrip("/"))

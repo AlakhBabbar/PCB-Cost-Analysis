@@ -13,7 +13,8 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.core.settings import settings
 from backend.core.supabase import SupabaseError
-from backend.routers import admin, auth, gerber, pricing
+from backend.core.woocommerce import WooError
+from backend.routers import admin, auth, gerber, order, pricing
 from backend.services.pricing.store import ConfigUnavailable, load_config
 
 app = FastAPI(title="PCB Quote API")
@@ -23,13 +24,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-for r in (gerber, pricing, auth, admin):
+for r in (gerber, pricing, order, auth, admin):
     app.include_router(r.router)
 
 
 @app.exception_handler(SupabaseError)
 def supabase_error(_, exc: SupabaseError):
     return JSONResponse({"detail": str(exc)}, status_code=502)
+
+
+@app.exception_handler(WooError)
+def woo_error(_, exc: WooError):
+    return JSONResponse({"detail": f"Could not create the order in the shop. {exc}"[:300]}, status_code=502)
 
 
 @app.exception_handler(ConfigUnavailable)

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, ChevronDown, Cpu, RotateCcw, Settings } from 'lucide-react'
+import { AlertCircle, ChevronDown, Cpu, RotateCcw, Settings, ShoppingCart } from 'lucide-react'
 import { Button, Card } from '../../components/ui'
 import { parseGerber } from '../../api/gerber'
 import useQuote from './useQuote'
+import { toQuoteBody } from './defaults'
+import OrderDialog from './OrderDialog'
 import QuoteForm from './QuoteForm'
 import QuoteSummary from './QuoteSummary'
 import PriceBar from './PriceBar'
@@ -19,6 +21,7 @@ export default function QuotePage() {
   const [parsing, setParsing] = useState(false)
   const [parseError, setParseError] = useState(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [ordering, setOrdering] = useState(false)
 
   const handleFile = async (f) => {
     setParseError(null)
@@ -46,7 +49,16 @@ export default function QuotePage() {
   }
 
   const warnings = (parsed?.warnings ?? []).filter((w) => !NOISE.some((n) => w.startsWith(n)))
-  const summary = { quote: q.quote, loading: q.loading, error: q.error }
+  const canOrder = q.quote && !q.loading && file && parsed && !parsing
+  const orderAction = (
+    <div className="flex flex-col gap-1.5">
+      <Button size="lg" icon={ShoppingCart} disabled={!canOrder} onClick={() => setOrdering(true)} className="w-full">
+        Order now
+      </Button>
+      {!file && <p className="text-center text-xs text-slate-500">Upload your Gerber .zip to place an order</p>}
+    </div>
+  )
+  const summary = { quote: q.quote, loading: q.loading, error: q.error, action: orderAction }
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 text-slate-900 pb-28 lg:pb-0">
@@ -106,6 +118,10 @@ export default function QuotePage() {
       </main>
 
       <PriceBar {...summary} />
+
+      {ordering && canOrder && (
+        <OrderDialog quote={q.quote} quoteBody={toQuoteBody(q.values)} file={file} onClose={() => setOrdering(false)} />
+      )}
     </div>
   )
 }

@@ -9,7 +9,7 @@ const Row = ({ label, value, strong }) => (
   </div>
 )
 
-export default function QuoteSummary({ quote, loading, error }) {
+export default function QuoteSummary({ quote, loading, error, action }) {
   if (error) {
     return (
       <div className="flex gap-2 rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-red-700">
@@ -36,6 +36,7 @@ export default function QuoteSummary({ quote, loading, error }) {
         <Row label={`GST (${quote.gstPct}%)`} value={inr(quote.gst)} />
         <Row strong label="Total" value={inr(quote.total)} />
       </div>
+      {action}
       <div className="flex flex-col gap-1.5 text-xs text-slate-500">
         <span className="flex items-center gap-1.5"><Truck className="w-3.5 h-3.5" />Ships in {quote.delivery}</span>
         {panel?.boardsPerPanel > 0 && <span>{panel.boardsPerPanel} boards per panel, {pct(panel.utilizationPct)} panel utilization</span>}
