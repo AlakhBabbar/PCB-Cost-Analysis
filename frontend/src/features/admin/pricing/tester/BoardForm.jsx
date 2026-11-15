@@ -1,4 +1,6 @@
 import { Card, Field, Select, Switch } from '../../../../components/ui'
+import { parseSpan, showSpans } from '../../../../lib/spans'
+import NumberInput from '../shared/NumberInput'
 import { usePricing } from '../PricingContext'
 import BoardSize from '../shared/BoardSize'
 import { fitBoard } from '../model'
@@ -29,6 +31,14 @@ export default function BoardForm({ config }) {
                   </span>
                 ))}
               </fieldset>
+            )
+          }
+          const spans = c.kind === 'number' ? on.map((o) => parseSpan(o.name)).filter(Boolean) : []
+          if (spans.some(([lo, hi]) => lo !== hi)) {
+            return (
+              <Field key={c.key} label={c.label} htmlFor={`t-${c.key}`} help={`We make ${showSpans(spans, c.unit)}`}>
+                <NumberInput id={`t-${c.key}`} value={Number(fit[c.key])} min={0} suffix={c.unit} onChange={(v) => set(c.key, String(v))} />
+              </Field>
             )
           }
           return (

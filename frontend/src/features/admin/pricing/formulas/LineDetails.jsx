@@ -1,24 +1,21 @@
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
 import { Button, Field, Input, useToast } from '../../../../components/ui'
 import { usePricing } from '../PricingContext'
-import ExprEditor from '../expr/ExprEditor'
-import { paletteGroups } from '../model'
 import Adjustments from './Adjustments'
 
-export default function LineEditor({ line, index, result, error }) {
-  const { draft, edit, names, check } = usePricing()
+export default function LineDetails({ line, index, result, by }) {
+  const { draft, edit } = usePricing()
   const toast = useToast()
   const set = (patch) => edit((d) => Object.assign(d.formulas[index], patch))
   const move = (by) => edit((d) => d.formulas.splice(index + by, 0, ...d.formulas.splice(index, 1)))
   const remove = () => {
     edit((d) => d.formulas.splice(index, 1))
-    toast(`Removed ${line.label || line.key}`, { action: { label: 'Undo', onClick: () => edit((d) => d.formulas.splice(index, 0, line)) } })
+    toast(`Removed ${line.label || 'the line'}`, { action: { label: 'Undo', onClick: () => edit((d) => d.formulas.splice(index, 0, line)) } })
   }
-  const by = draft.categories.filter((c) => c.target === line.key).map((c) => c.label)
   const last = draft.formulas.length - 1
 
   return (
-    <div className="flex flex-col gap-4 bg-canvas/60 px-4 pb-5 pt-1 md:px-5">
+    <div className="flex flex-col gap-3 rounded-lg bg-canvas p-3">
       {line.help && <p className="text-[14px] md:text-[13px] text-muted">{line.help}</p>}
       {line.locked ? (
         <p className="text-[13px] md:text-xs text-muted">The price needs this line, so its formula can change but it cannot be renamed or removed.</p>
@@ -34,8 +31,6 @@ export default function LineEditor({ line, index, result, error }) {
           </div>
         </div>
       )}
-      <ExprEditor id={`expr-${line.key}`} label={`Formula, written with names (${line.key})`} value={line.expr} onChange={(v) => set({ expr: v })}
-        names={names} groups={paletteGroups(draft, index)} error={error} pending={check.pending} />
       {by.length > 0 && <p className="text-[14px] md:text-[13px] text-muted">Then adjusted by {by.join(', ')}.</p>}
       {result && (
         <div className="rounded-lg border border-line bg-white p-3">

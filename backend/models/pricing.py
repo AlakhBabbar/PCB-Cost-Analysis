@@ -1,6 +1,9 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+# categories whose options are numbers or number ranges, with their unit
+NUMERIC = {"layers": "", "thickness": "mm", "copper": "oz", "minHole": "mm"}
 
 
 class Setting(BaseModel):
@@ -32,7 +35,15 @@ class Category(BaseModel):
     target: str
     multi: bool = False
     help: str = ""
+    kind: Literal["choice", "number"] = "choice"
+    unit: str = ""
     options: list[Option]
+
+    @model_validator(mode="after")
+    def _typed(self):
+        self.kind = "number" if self.key in NUMERIC else "choice"  # fixed by the key, never by the admin
+        self.unit = NUMERIC.get(self.key, "")
+        return self
 
 
 class OrderType(BaseModel):
@@ -100,6 +111,14 @@ class AdminQuoteRequest(QuoteRequest):
 class ConfigBody(BaseModel):
     config: dict
     note: str = ""
+
+
+class TryBody(BaseModel):
+    """One formula and the test numbers to run it on."""
+    expr: str = Field(max_length=600)
+    values: dict[str, float] = {}
+    picked: list[tuple[str, str]] = []  # (category, option) pairs that count as picked
+    chosen: dict[str, float] = {}  # the number the buyer chose, per number category
 
 
 class Adjustment(BaseModel):

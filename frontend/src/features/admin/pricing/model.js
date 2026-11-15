@@ -1,3 +1,4 @@
+import { covers, parseSpan } from '../../../lib/spans'
 export const OPS = [
   { value: 'x', label: 'times' },
   { value: 'pct', label: 'plus %' },
@@ -12,24 +13,15 @@ export const INPUTS = {
   length: 'Board length (mm)',
   qty: 'Quantity',
   layers: 'Layers',
-  makes_board: 'Makes the board (1 or 0)',
-  assembles: 'Assembles (1 or 0)',
-  ladder_markup_pct: 'Ladder markup for this quantity',
+  makes_board: 'Makes the board',
+  assembles: 'Assembles',
+  ladder_markup_pct: 'Ladder markup %',
   option_fees: 'One time fees of chosen options',
 }
 
-export const FUNCS = [
-  { key: 'min', label: 'Smallest of', text: 'min(, )', caret: 4 },
-  { key: 'max', label: 'Largest of', text: 'max(, )', caret: 4 },
-  { key: 'floor', label: 'Round down', text: 'floor()', caret: 6 },
-  { key: 'ceil', label: 'Round up', text: 'ceil()', caret: 5 },
-  { key: 'round', label: 'Round', text: 'round()', caret: 6 },
-  { key: 'if', label: 'If, then, else', text: 'if(, , )', caret: 3 },
-  { key: 'picked', label: 'Option picked (1 or 0)', text: 'picked("specials", "impedance")' },
-  { key: 'num', label: 'Number in the picked option', text: 'num("thickness")' },
-]
+export const FUNCS = { max: 'Larger of', min: 'Smaller of', floor: 'Round down', ceil: 'Round up', round: 'Round', if: 'If' }
 
-const RESERVED = new Set([...Object.keys(INPUTS), ...FUNCS.map((f) => f.key), 'and', 'or', 'not', 'in', 'is', 'yield', 'lambda', 'True', 'False', 'None'])
+const RESERVED = new Set([...Object.keys(INPUTS), ...Object.keys(FUNCS), 'picked', 'num', 'and', 'or', 'not', 'in', 'is', 'yield', 'lambda', 'True', 'False', 'None'])
 
 export const applyOp = (base, op, value) => (op === 'x' ? base * value : op === 'pct' ? base * (1 + value / 100) : base + value)
 
@@ -99,6 +91,10 @@ export function fitBoard(board, cfg) {
     const on = c.options.filter((o) => o.enabled)
     if (c.multi) {
       for (const o of on) if (board[c.key]?.[o.name]) out.specials[o.name] = true
+    } else if (c.kind === 'number') {
+      const spans = on.map((o) => parseSpan(o.name)).filter(Boolean)
+      const usual = parseSpan((on.find((o) => Number(o.value) === NEUTRAL[o.op] && !o.orderFee) ?? on[0])?.name)
+      if (board[c.key] === '' || board[c.key] == null || !covers(spans, Number(board[c.key]))) out[c.key] = usual ? String(usual[1]) : ''
     } else if (!on.some((o) => o.name === board[c.key])) {
       out[c.key] = (on.find((o) => Number(o.value) === NEUTRAL[o.op] && !o.orderFee) ?? on[0])?.name ?? ''
     }
@@ -119,9 +115,3 @@ export function runs(list, keyOf) {
   })
   return out
 }
-
-export const paletteGroups = (cfg, upto = cfg.formulas.length) => ({
-  settings: cfg.settings.map((s) => ({ key: s.key, label: s.label })),
-  lines: cfg.formulas.slice(0, upto).map((f) => ({ key: f.key, label: f.label || f.key })),
-  inputs: Object.entries(INPUTS).map(([key, label]) => ({ key, label })),
-})

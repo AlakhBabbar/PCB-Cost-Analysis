@@ -8,6 +8,7 @@ from backend.models.pricing import PricingConfig, QuoteRequest
 from backend.services.pricing.defaults import CATEGORY_KEYS, REQUIRED
 from backend.services.pricing.engine import INPUTS, run
 from backend.services.pricing.expr import FUNCS, ExprError, names, parse, string_calls
+from backend.services.pricing.spans import find, problems, span
 
 PAGE = {"limits": "Buyer options", "price": "Price rules", "factory": "Factory costs"}
 FIELDS = {"settings": "Settings", "categories": "Buyer options", "orderTypes": "Order types", "markupTiers": "Quantity ladder",
@@ -84,6 +85,8 @@ def _categories(cfg: PricingConfig) -> list[dict]:
     for c in cfg.categories:
         where = f"Buyer options > {c.label}"
         errs += _dupes(where, [o.name for o in c.options], "option")
+        if c.kind == "number":
+            errs += [_err(where, msg) for msg in problems(c.options)]
         if c.target not in lines:
             errs.append(_err(where, f'It changes the line "{c.target}", which is not a formula line.'))
         if c.multi != (c.key == "specials"):
@@ -135,18 +138,25 @@ def _formulas(cfg: PricingConfig) -> list[dict]:
     return errs
 
 
-def _pick(names_: list[str], want: str) -> str:
-    return want if want in names_ else names_[0]
+def _sample_value(c, want: str | None = None) -> str:
+    """A value the category accepts: the wanted one when offered, else the first choice."""
+    on = [o for o in c.options if o.enabled]
+    if c.kind != "number":
+        return want if any(o.name == want for o in on) else on[0].name
+    if want and find(on, float(want)):
+        return want
+    first = min((s for o in on if (s := span(o.name))), default=(0, 0))
+    return f"{first[0]:g}"
 
 
 def _samples(cfg: PricingConfig) -> list[dict]:
-    opts = {c.key: [o.name for o in c.options if o.enabled] for c in cfg.categories}
+    cats = [c for c in cfg.categories if not c.multi and any(o.enabled for o in c.options)]
     errs = []
     for label, layers, w, l, qty, asm in SAMPLES:
         types = [t for t in cfg.orderTypes if t.enabled]
         ot = next((t for t in types if t.assembles == asm and t.makesBoard), types[0])
         req = QuoteRequest(boardW=w, boardL=l, quantity=qty, orderType=ot.name, specials={},
-                           **{k: v[0] for k, v in opts.items() if k != "specials"} | {"layers": _pick(opts["layers"], layers)})
+                           **{c.key: _sample_value(c, layers if c.key == "layers" else None) for c in cats})
         try:
             v = run(req, cfg, rules=False).values
         except ValueError as exc:

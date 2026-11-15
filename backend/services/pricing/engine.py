@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 
 from backend.models.pricing import Category, Option, PricingConfig, QuoteRequest
 from backend.services.pricing.expr import ExprError, evaluate, parse
+from backend.services.pricing.spans import NUMERIC, find, number, offered
 
 INPUTS = ("width", "length", "qty", "layers", "makes_board", "assembles", "ladder_markup_pct", "option_fees")
 NUM = re.compile(r"^\s*(-?\d+(?:\.\d+)?)")
@@ -30,6 +31,12 @@ def choose(req: QuoteRequest, cfg: PricingConfig) -> dict[str, list[Option]]:
             if bad := sorted(wanted - set(live)):
                 raise ValueError(f"{c.label}: {', '.join(bad)} is not available")
             chosen[c.key] = [o for o in c.options if o.name in wanted]
+        elif c.kind == "number":
+            value, on = getattr(req, c.key), list(live.values())
+            hit = find(on, n) if (n := number(value)) is not None else None
+            if not hit:
+                raise ValueError(f"{c.label}: {value} is not something we make. We make {offered(on)}.")
+            chosen[c.key] = [hit]
         else:
             value = getattr(req, c.key)
             if value not in live:
@@ -65,7 +72,8 @@ def run(req: QuoteRequest, cfg: PricingConfig, rules: bool = True) -> Run:
     chosen = choose(req, cfg)
     env = inputs(req, cfg, chosen)
     picked = lambda cat, opt: any(o.name == opt for o in chosen.get(cat, []))
-    num = lambda cat: lead_number(chosen[cat][0].name) if chosen.get(cat) else 0.0
+    typed = {k: number(getattr(req, k)) or 0.0 for k in NUMERIC}  # what the buyer asked for, not the range it fell in
+    num = lambda cat: typed[cat] if cat in typed else lead_number(chosen[cat][0].name) if chosen.get(cat) else 0.0
     out = Run(values={}, chosen=chosen)
     for f in cfg.formulas:
         try:

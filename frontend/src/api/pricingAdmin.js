@@ -10,3 +10,4 @@ export const getVersions = (token) => request(`${base}/versions`, { token })
 export const restoreVersion = (token, id) => request(`${base}/versions/${encodeURIComponent(id)}/restore`, { method: 'POST', token })
 export const priceBoard = (token, board, config) =>
   request('/api/admin/quote', { method: 'POST', body: config ? { ...board, config } : board, token })
+export const tryFormula = (token, body) => request(`${base}/try`, { method: 'POST', body, token })

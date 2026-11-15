@@ -9,6 +9,7 @@ import { capital, runs } from '../model'
 import Pipeline from './Pipeline'
 import FormulaLine from './FormulaLine'
 import AddLineDialog from './AddLineDialog'
+import Legend from '../expr/Legend'
 
 export default function FormulasPage() {
   const { token, board, draft, saved } = usePricing()
@@ -26,6 +27,7 @@ export default function FormulasPage() {
           <span className="font-medium text-ink">Advanced.</span> These lines turn your settings into every price. Each change is checked as you type, and a formula that does not work cannot be saved.
         </p>
       </div>
+      <Legend className="px-1" />
       <Card title="Sample board" description="Change the size or quantity to see each stage of the price move.">
         <BoardSize className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:max-w-md" />
         <div className="mt-5"><Pipeline values={values} loading={q.loading} /></div>

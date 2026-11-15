@@ -1,6 +1,7 @@
 import { FileCheck2 } from 'lucide-react'
 import { Badge, Button, Card, Field, Input, Select, Spinner, ToggleGroup } from '../../components/ui'
 import { optionLabel } from './defaults'
+import { showSpans } from '../../lib/spans'
 
 const SWATCH = { Green: '#1f7a45', Blue: '#1d4ed8', Red: '#b91c1c', Black: '#1e293b', White: '#f8fafc', Yellow: '#eab308', Purple: '#7e22ce' }
 
@@ -29,6 +30,18 @@ export default function QuoteForm({ values, onChange, options, error, onRetry, a
         value={values[key]} onChange={(e) => onChange(key, e.target.value)} />
     ))
 
+  // A number field with ranges is typed in; with exact values only it stays a pick list.
+  const pick = (key, label, unit, fallback) => {
+    const n = options.numbers?.[key]
+    if (!n?.typed) return fallback(key, unit ? label : `${label}${n?.unit ? ` (${n.unit})` : ''}`, unit)
+    return (
+      <div key={key} className="flex flex-col gap-1">
+        {number(key, label, n.unit)}
+        <p className="text-[13px] md:text-xs text-muted">We make {showSpans(n.spans, n.unit)}</p>
+      </div>
+    )
+  }
+
   const setMask = (color) => {
     onChange('maskColor', color)
     const flip = { White: 'Black', Black: 'White' }[color]
@@ -48,11 +61,11 @@ export default function QuoteForm({ values, onChange, options, error, onRetry, a
         {number('boardW', 'Width', 'mm')}
         {number('boardL', 'Length', 'mm')}
         {number('quantity', 'Quantity', 'pcs', 'numeric')}
-        {toggle('layers', 'Layers')}
+        {pick('layers', 'Layers', '', toggle)}
       </>)}
       {section('Build', <>
-        {select('thickness', 'Thickness', 'mm')}
-        {select('copper', 'Copper weight', 'oz')}
+        {pick('thickness', 'Thickness', 'mm', select)}
+        {pick('copper', 'Copper weight', 'oz', select)}
         {select('material', 'Material')}
         {select('finish', 'Surface finish')}
       </>)}
@@ -67,7 +80,7 @@ export default function QuoteForm({ values, onChange, options, error, onRetry, a
       </>)}
       {section('Process', <>
         {toggle('traceSpace', 'Min trace / space (mil)')}
-        {toggle('minHole', 'Min hole (mm)')}
+        {pick('minHole', 'Min hole', '', toggle)}
         {toggle('ipcStd', 'IPC class')}
         {toggle('testing', 'Electrical test')}
         {toggle('express', 'Production speed')}

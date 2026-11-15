@@ -85,5 +85,5 @@ def place_order(req: QuoteRequest, full, quote, c: Customer, upload_id: str, sid
         uploads.set_order(upload_id, order_id)
         activity.log("order_created", "order", order_id, {"wooOrderId": woo["id"], "needsReview": bool(reasons)})
     if sid:
-        sessions.mark_ordered(sid, order_id)
+        sessions.mark_ordered(sid, order_id, c)
     return OrderResponse(orderId=woo["id"], paymentUrl=woo["payment_url"])

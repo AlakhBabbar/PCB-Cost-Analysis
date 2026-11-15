@@ -5,7 +5,7 @@ import { DrawCheck, FadeIn } from '../../components/motion'
 import { sendCheckout } from '../../api/checkout'
 import { compact, isEmail, phoneDigits } from './contact'
 import { errorText } from '../../lib/errorText'
-import { sessionId } from './session'
+import { newSession, sessionId } from './session'
 
 function Sent() {
   return (
@@ -39,6 +39,7 @@ export default function ManualRequest({ reason, quoteBody, sent, onSent }) {
         note: form.note.trim() || undefined,
         quote: quoteBody,
       }, sessionId())
+      newSession()
       onSent()
     } catch (err) {
       setError(errorText(err))

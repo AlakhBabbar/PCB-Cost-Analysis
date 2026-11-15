@@ -84,3 +84,14 @@ def test_admin_quote_errors():
     bad["rules"][0]["when"] = "width <"
     r = client.post("/api/admin/quote", json={**REF, "config": bad})
     assert r.status_code == 422 and r.json()["detail"][0]["where"].startswith("Buyer options > Build rules")
+
+
+def test_try_runs_one_formula_on_test_numbers():
+    post = lambda **body: client.post("/api/admin/pricing/try", json=body).json()
+    assert post(expr="a + b * 2", values={"a": 42, "b": 4}) == {"ok": True, "value": 50}
+    assert post(expr="if(qty > 10, 1, 0)", values={"qty": 11})["value"] == 1
+    assert post(expr='picked("specials", "blindVias") and layers < 4', values={"layers": 2},
+                picked=[["specials", "blindVias"]])["value"] == 1
+    assert post(expr='num("thickness") / num("minHole")', chosen={"thickness": 1.6, "minHole": 0.4})["value"] == 4
+    assert post(expr="a / b", values={"a": 1, "b": 0}) == {"ok": False, "error": "Division by zero."}
+    assert "is not a setting" in post(expr="a + missing", values={"a": 1})["error"]

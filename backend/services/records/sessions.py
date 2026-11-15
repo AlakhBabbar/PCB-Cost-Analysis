@@ -8,6 +8,7 @@ T = "quote_sessions"
 STAGES = ("quoted", "file_uploaded", "checkout_started", "manual_requested", "ordered")
 QUIET = timedelta(minutes=10)
 SEARCH = ("first_name", "last_name", "email", "phone", "company", "note")
+CONTACT = {"first_name": "firstName", "last_name": "lastName", "email": "email", "phone": "phone", "company": "company"}
 
 
 def _save(sid: str, stage: str, data: dict, bump: bool = False) -> None:
@@ -57,8 +58,9 @@ def link_upload(sid: str, upload_id: str) -> None:
     db.write(_save, sid, "file_uploaded", {"upload_id": upload_id})
 
 
-def mark_ordered(sid: str, order_id: str | None) -> None:
-    db.write(_save, sid, "ordered", {"order_id": order_id} if order_id else {})
+def mark_ordered(sid: str, order_id: str | None, customer=None) -> None:
+    contact = {k: getattr(customer, f) for k, f in CONTACT.items() if getattr(customer, f, None)} if customer else {}
+    db.write(_save, sid, "ordered", {**contact, **({"order_id": order_id} if order_id else {})})
 
 
 def view_filter(view: str) -> dict:

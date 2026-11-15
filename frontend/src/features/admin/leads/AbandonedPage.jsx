@@ -4,7 +4,7 @@ import LeadList from './LeadList'
 const TABS = [
   {
     value: 'abandoned', label: 'Left at checkout', art: EmptyAbandoned,
-    empty: ['Nobody has left at checkout', 'Buyers who start checkout and stop show here, so you can call them before they forget.'],
+    empty: ['Nobody has left at checkout', 'A buyer shows here 10 minutes after they give an email or phone at checkout and stop, so you can call them before they forget.'],
   },
   {
     value: 'browsing', label: 'Only got a price', art: EmptyAbandoned,
@@ -13,5 +13,5 @@ const TABS = [
 ]
 
 export default function AbandonedPage() {
-  return <LeadList title="Abandoned checkouts" description="Buyers who got a price or started checkout and did not finish." tabs={TABS} />
+  return <LeadList title="Abandoned checkouts" description="Buyers who got a price or started checkout and did not finish. A checkout counts as left after 10 quiet minutes." tabs={TABS} />
 }

@@ -1,4 +1,4 @@
-const META = ['defaults', 'labels', 'specials']
+const META = ['defaults', 'labels', 'numbers', 'specials']
 
 // Form values from GET /api/pricing/options: each list starts on its default, else its first option.
 export function initialQuote(options) {

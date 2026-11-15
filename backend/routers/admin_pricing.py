@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from backend.core.auth import require_manager
-from backend.models.pricing import AdminQuoteRequest, AdminQuoteResponse, ConfigBody, PricingConfig, QuoteRequest
+from backend.models.pricing import AdminQuoteRequest, AdminQuoteResponse, ConfigBody, PricingConfig, QuoteRequest, TryBody
 from backend.services.pricing import store
 from backend.services.pricing.defaults import default_config
+from backend.services.pricing.expr import ExprError, evaluate, parse
 from backend.services.pricing.quote import calculate_quote
 from backend.services.pricing.validate import check
 from backend.services.records import activity
@@ -50,6 +51,17 @@ def get_defaults():
 def check_pricing(body: ConfigBody):
     errors = check(body.config)[1]
     return {"ok": not errors, "errors": errors}
+
+
+@router.post("/pricing/try")
+def try_formula(body: TryBody):
+    """Run one formula on test numbers with the same evaluator real prices use. Nothing is saved."""
+    on = {tuple(p) for p in body.picked}
+    try:
+        value = evaluate(parse(body.expr), body.values, lambda c, o: (c, o) in on, lambda c: body.chosen.get(c, 0.0))
+    except ExprError as exc:
+        return {"ok": False, "error": str(exc)}
+    return {"ok": True, "value": round(value, 6)}
 
 
 @router.get("/pricing/versions")

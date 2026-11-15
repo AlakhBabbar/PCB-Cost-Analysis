@@ -31,7 +31,7 @@ export default function AddLineDialog({ open, onClose }) {
         <Button type="submit" form="add-line" disabled={!name.trim()}>Add line</Button>
       </>}>
       <form id="add-line" onSubmit={add} className="flex flex-col gap-4 pb-2">
-        <Field label="Name" htmlFor="line-new-name" help={name.trim() ? `Formulas refer to it as ${key}.` : 'For example: Freight per board'}>
+        <Field label="Name" htmlFor="line-new-name" help="For example: Freight per board">
           <Input id="line-new-name" data-autofocus value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label="Group" htmlFor="line-new-section" help="The line goes at the end of this group.">

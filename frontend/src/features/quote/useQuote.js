@@ -54,8 +54,9 @@ export default function useQuote() {
     const next = {}
     const { width_mm, height_mm } = parsed.dimensions ?? {}
     if (width_mm > 0 && height_mm > 0) Object.assign(next, { boardW: width_mm.toFixed(2), boardL: height_mm.toFixed(2) })
-    if (parsed.copper_layer_count > 0) next.layers = snapToOption(parsed.copper_layer_count, options.layers)
-    if (parsed.drill?.min_drill_mm > 0) next.minHole = snapToOption(parsed.drill.min_drill_mm, options.minHole)
+    const fill = (key, value) => (options.numbers?.[key]?.typed ? String(value) : snapToOption(value, options[key]))
+    if (parsed.copper_layer_count > 0) next.layers = fill('layers', parsed.copper_layer_count)
+    if (parsed.drill?.min_drill_mm > 0) next.minHole = fill('minHole', Math.round(parsed.drill.min_drill_mm * 100) / 100)
     setValues((v) => ({ ...v, ...next }))
     setAutoFields(Object.fromEntries(Object.keys(next).map((k) => [k, true])))
   }

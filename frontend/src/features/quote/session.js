@@ -1,4 +1,4 @@
-const KEY = 'pcb-session-id'
+const KEY = 'pcb-visit-id'
 let memo = null
 
 const uuid = () => {
@@ -10,7 +10,7 @@ const uuid = () => {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
 }
 
-// One id per browser, kept in localStorage, or in memory when storage is blocked.
+// One id per visit, kept in localStorage, or in memory when storage is blocked.
 export function sessionId() {
   if (memo) return memo
   try { memo = localStorage.getItem(KEY) } catch { memo = null }
@@ -19,4 +19,10 @@ export function sessionId() {
     try { localStorage.setItem(KEY, memo) } catch { /* storage blocked, memory only */ }
   }
   return memo
+}
+
+// Called once a visit became an order or a quote request, so what the buyer does next is tracked as a new visit.
+export function newSession() {
+  memo = uuid()
+  try { localStorage.setItem(KEY, memo) } catch { /* storage blocked, memory only */ }
 }

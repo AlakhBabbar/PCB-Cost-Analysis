@@ -31,3 +31,12 @@ When the tables are missing or unreachable the engine serves the last good confi
 
 ## Reference
 Defaults, 130 x 80 mm, 275 pcs, 2 layers, Bare PCB, 1.6 mm, 1 oz, FR4 TG130, HASL, Green, 6/6, 0.40, IPC-2, no test, Standard: cost 73.30, price 89.27 per board, subtotal 24550.56, total with GST 28969.66.
+
+## Number options and ranges
+Four categories are numbers, fixed in code by their key (`NUMERIC` in `backend/models/pricing.py`): `layers`, `thickness` (mm), `copper` (oz), `minHole` (mm). The API reports them as `kind: "number"` with a `unit`; every other category is `kind: "choice"`.
+
+An option of a number category is a value (`"1.6"`) or a range (`"0.6-0.8"`), stored in the option name and read by `services/pricing/spans.py`.
+- The buyer's value picks the range that holds it. A value on a border shared by two ranges uses the lower range. A value outside every range is refused with a sentence naming what is made.
+- `num("thickness")` in formulas and rules is the value the buyer asked for, not the range.
+- Saving is refused when two rows repeat a value, when ranges overlap (they may only touch at their ends), when a range starts above its end, or when a single value sits on the top end of a range.
+- `GET /api/pricing/options` adds `numbers: { field: { unit, spans, typed } }`. `typed` is true when any row is a range; the buyer form then shows a number box instead of a pick list.

@@ -1,5 +1,6 @@
 from backend.models.pricing import AdminQuoteResponse, PricingConfig, QuoteRequest, QuoteResponse
 from backend.services.pricing.engine import run
+from backend.services.pricing.spans import NUMERIC, number
 
 SUMMARY = [("layers", "Layers", ""), ("thickness", "Thickness", " mm"), ("copper", "Copper", " oz"),
            ("material", "Material", ""), ("finish", "Surface finish", ""), ("traceSpace", "Trace/space", " mil"),
@@ -12,7 +13,7 @@ def _summary(req: QuoteRequest, chosen: dict, delivery: str) -> dict[str, str]:
     out = {"Order type": req.orderType, "Board": f"{req.boardW:g} x {req.boardL:g} mm"}
     for key, title, unit in SUMMARY:
         picks = chosen.get(key, [])
-        text = ", ".join(o.label or o.name for o in picks)
+        text = f"{number(getattr(req, key)):g}" if key in NUMERIC and picks else ", ".join(o.label or o.name for o in picks)
         out[title] = text + unit if text else "None"
     out["Delivery"] = delivery
     return out

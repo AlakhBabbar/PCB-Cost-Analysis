@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FileArchive, Lock } from 'lucide-react'
 import { Button, Dialog, Field, Input, Select, Textarea } from '../../components/ui'
 import { useShake } from '../../components/motion'
@@ -7,7 +7,7 @@ import { placeOrder } from '../../api/order'
 import { inr } from '../../lib/format'
 import { INDIAN_STATES } from './indianStates'
 import { errorText } from '../../lib/errorText'
-import { sessionId } from './session'
+import { newSession, sessionId } from './session'
 import useCheckoutCapture from './useCheckoutCapture'
 
 const SAVED = 'pcb-order-customer'
@@ -54,6 +54,7 @@ export default function OrderDialog({ open, quote, quoteBody, file, uploadId, on
     try {
       const { paymentUrl } = await placeOrder({ uploadId, quote: quoteBody, customer: form }, sessionId())
       try { localStorage.setItem(SAVED, JSON.stringify({ ...form, note: '' })) } catch { /* storage blocked */ }
+      newSession()
       window.location.assign(paymentUrl)
     } catch (err) {
       const byField = fieldErrors(err.detail)
@@ -70,6 +71,8 @@ export default function OrderDialog({ open, quote, quoteBody, file, uploadId, on
     </Field>
   )
   const leave = () => capture(form)
+  // Details remembered from last time count as a started checkout as soon as the dialog opens.
+  useEffect(() => { capture(loadSaved()) }, [capture])
 
   return (
     <Dialog
