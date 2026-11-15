@@ -20,27 +20,63 @@ def usable(result: ParsedGerberResult) -> bool:
     return not result.errors and result.dimensions is not None
 
 
+def _ready() -> None:
+    if not _bucket["ok"]:
+        supabase.ensure_bucket(settings.gerber_bucket)
+        _bucket["ok"] = True
+
+
 def store(sid: str | None, filename: str, data: bytes, result: ParsedGerberResult) -> str | None:
     """Save the zip once in the private bucket and record it. Returns the upload id, None when storage failed."""
     upload_id = str(uuid.uuid4())
     try:
-        if not _bucket["ok"]:
-            supabase.ensure_bucket(settings.gerber_bucket)
-            _bucket["ok"] = True
+        _ready()
         supabase.upload_file(settings.gerber_bucket, path_for(upload_id), data, "application/zip")
     except supabase.SupabaseError as exc:
         log.warning("Gerber upload failed: %s", str(exc)[:200])
         return None
+    record(sid, upload_id, filename, len(data), result)
+    return upload_id
+
+
+def upload_link() -> dict | None:
+    """A new upload id and the one time link the browser sends the zip to. None when storage failed."""
+    upload_id = str(uuid.uuid4())
+    try:
+        _ready()
+        return {"uploadId": upload_id, "url": supabase.signed_upload_url(settings.gerber_bucket, path_for(upload_id))}
+    except supabase.SupabaseError as exc:
+        log.warning("Upload link failed: %s", str(exc)[:200])
+        return None
+
+
+def fetch(upload_id: str) -> bytes | None:
+    """The zip the browser sent to storage, None when it is not there."""
+    try:
+        return supabase.download_file(settings.gerber_bucket, path_for(upload_id))
+    except supabase.SupabaseError as exc:
+        log.info("Upload %s not readable: %s", upload_id, str(exc)[:200])
+        return None
+
+
+def discard(upload_id: str) -> None:
+    """Remove a zip that failed the checks so junk does not pile up."""
+    try:
+        supabase.delete_file(settings.gerber_bucket, path_for(upload_id))
+    except supabase.SupabaseError as exc:
+        log.warning("Could not remove upload %s: %s", upload_id, str(exc)[:200])
+
+
+def record(sid: str | None, upload_id: str, filename: str, size: int, result: ParsedGerberResult) -> None:
     dims = result.dimensions
     db.write(supabase.insert_rows, T, [{
-        "id": upload_id, "session_id": sid, "filename": filename, "size_bytes": len(data),
+        "id": upload_id, "session_id": sid, "filename": filename, "size_bytes": size,
         "storage_path": path_for(upload_id), "width_mm": dims.width_mm if dims else None,
         "height_mm": dims.height_mm if dims else None, "copper_layers": result.copper_layer_count,
         "min_drill_mm": result.drill.min_drill_mm, "parse_ok": usable(result), "warnings": result.warnings,
     }])
     if sid:
         sessions.link_upload(sid, upload_id)
-    return upload_id
 
 
 def get(upload_id: str) -> dict | None:

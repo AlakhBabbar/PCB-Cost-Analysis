@@ -21,7 +21,7 @@ def price(req: QuoteRequest):
 
 @router.get("/pricing/options")
 def options():
-    return pricing_options.form_options(store.get_config()) | {"maxUploadMb": settings.max_upload_mb}
+    return pricing_options.form_options(store.get_config()) | {"maxUploadMb": settings.max_upload_mb, "directUpload": settings.direct_upload}
 
 
 @router.post("/quote", dependencies=[Depends(limit("quote", 120, 60))])

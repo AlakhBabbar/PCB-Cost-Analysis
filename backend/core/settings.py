@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,7 +19,8 @@ class Settings(BaseSettings):
     wc_product_id: int = 0
     gerber_bucket: str = "gerbers"
     wc_webhook_secret: str = ""
-    max_upload_mb: int = 4 if os.environ.get("VERCEL") else 50  # Vercel refuses request bodies over 4.5 MB
+    max_upload_mb: int = 50
+    direct_upload: bool = True  # the browser sends Gerber zips straight to storage; needed where request bodies are capped
 
     @property
     def woo_enabled(self) -> bool:

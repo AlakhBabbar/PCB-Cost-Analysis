@@ -7,7 +7,7 @@ Instant PCB quote page for buyers, with an admin panel for orders, abandoned che
 - `frontend/` React + Vite. `features/quote/` buyer page. `features/admin/` admin panel (`shell`, `home`, `orders`, `leads`, `customers`, `files`, `pricing`, `settings`). `components/` ui, motion, art. `api/` fetch wrappers. `lib/` helpers.
 - `docs/v2-spec.md` what the system does and why. `docs/pricing-model.md` the engine. `docs/api-contract.md` endpoints. `docs/frontend-kit.md` UI primitives.
 - `supabase/migrations/` SQL to run in the Supabase SQL editor.
-- `vercel.json`, `api/index.py`, `requirements.txt` deploy both parts as one Vercel project, see `docs/deploy-vercel.md`.
+- `backend/vercel.json` and `frontend/vercel.json` deploy the two parts as two Vercel projects, see `docs/deploy-vercel.md`.
 
 ## Run
 1. Copy `backend/.env.example` to `backend/.env` and `frontend/.env.example` to `frontend/.env`, fill them in.
