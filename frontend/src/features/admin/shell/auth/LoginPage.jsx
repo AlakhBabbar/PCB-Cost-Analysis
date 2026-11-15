@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, Field, Input, linkClass } from '../../../../components/ui'
+import { Button, Field, Input, PasswordInput, linkClass } from '../../../../components/ui'
 import { useShake } from '../../../../components/motion'
 import AuthLayout from './AuthLayout'
 
@@ -36,7 +36,7 @@ export default function LoginPage({ signIn }) {
         <Input id="email" name="email" type="email" autoComplete="email" required autoFocus />
       </Field>
       <Field label="Password" htmlFor="password" error={error}>
-        <Input id="password" name="password" type="password" autoComplete="current-password" required aria-invalid={!!error} />
+        <PasswordInput id="password" name="password" autoComplete="current-password" required aria-invalid={!!error} />
       </Field>
       <Button type="submit" size="lg" loading={busy} className="mt-1 w-full md:h-10 md:text-sm">Sign in</Button>
     </AuthLayout>
