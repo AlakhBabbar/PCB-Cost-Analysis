@@ -1,0 +1,75 @@
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
+import { IconButton, Input, Select, Switch } from '../../../../components/ui'
+import { parseSpan, showSpan, spanName } from '../../../../lib/spans'
+import NumberInput from '../shared/NumberInput'
+import { ids } from '../shared/jump'
+import { OPS, reading } from '../model'
+import { gridCols } from './grid'
+
+function Cell({ label, className = '', children }) {
+  return (
+    <label className={`flex min-w-0 flex-col gap-1 ${className}`}>
+      <span className="text-[13px] text-muted md:sr-only">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+// A number option is a range. From and To the same means exactly that value.
+function RangeCells({ option: o, unit, onName }) {
+  const [lo, hi] = parseSpan(o.name) ?? [0, 0]
+  return (
+    <>
+      <Cell label="From" className="col-span-3 md:col-span-1">
+        <NumberInput value={lo} min={0} suffix={unit} aria-label="From" onChange={(v) => onName(spanName(v, Math.max(v, hi)))} />
+      </Cell>
+      <Cell label="To" className="col-span-3 md:col-span-1">
+        <NumberInput value={hi} min={0} suffix={unit} aria-label="To" onChange={(v) => onName(spanName(lo, v))} />
+      </Cell>
+    </>
+  )
+}
+
+export default function OptionRow({ catKey, catLabel, kind, unit, option: o, index, count, note, onChange, onMove, onRemove }) {
+  const set = (field) => (v) => onChange({ [field]: v })
+  const span = kind === 'number' ? parseSpan(o.name) : null
+  const name = span ? `${showSpan(span)}${unit ? ` ${unit}` : ''}` : o.label || o.name
+  return (
+    <div id={ids.option(catKey, index)} className={`grid grid-cols-6 items-end gap-x-2 gap-y-2 py-3 md:items-center ${gridCols(note, kind)} ${o.enabled ? '' : 'opacity-60'}`}>
+      {span ? <RangeCells option={o} unit={unit} onName={set('name')} /> : (
+        <>
+          <Cell label="Name" className="col-span-3 md:col-span-1">
+            <Input value={o.name} aria-label={`${catLabel} option name`} onChange={(e) => set('name')(e.target.value)} />
+          </Cell>
+          <Cell label="Shown as" className="col-span-3 md:col-span-1">
+            <Input value={o.label} placeholder={o.name} aria-label={`${name} shown as`} onChange={(e) => set('label')(e.target.value)} />
+          </Cell>
+        </>
+      )}
+      <Cell label="Does" className="col-span-2 md:col-span-1">
+        <Select options={OPS} value={o.op} aria-label={`${name} operator`} onChange={(e) => set('op')(e.target.value)} />
+      </Cell>
+      <Cell label="Amount" className="col-span-2 md:col-span-1">
+        <NumberInput value={o.value} aria-label={`${name} amount`} onChange={set('value')} />
+      </Cell>
+      <Cell label="One time fee" className="col-span-2 md:col-span-1">
+        <NumberInput value={o.orderFee} min={0} aria-label={`${name} one time fee`} prefix="₹" onChange={set('orderFee')} />
+      </Cell>
+      {note && (
+        <Cell label="Buyer note" className="col-span-6 md:col-span-1">
+          <Input value={o.note} placeholder="For example: 3-5 working days" aria-label={`${name} buyer note`} onChange={(e) => set('note')(e.target.value)} />
+        </Cell>
+      )}
+      <div className="col-span-6 flex min-w-0 items-center justify-between gap-1 md:col-span-1 md:justify-end">
+        <p className="min-w-0 text-[13px] tabular-nums text-muted md:hidden">{span ? `${name}: ` : ''}{reading(o)}</p>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Switch checked={o.enabled} onChange={set('enabled')} label={`Offer ${name}`} className="mr-1.5" />
+          <IconButton icon={ArrowUp} label={`Move ${name} up`} size="sm" disabled={index === 0} onClick={() => onMove(-1)} />
+          <IconButton icon={ArrowDown} label={`Move ${name} down`} size="sm" disabled={index === count - 1} onClick={() => onMove(1)} />
+          <IconButton icon={Trash2} label={`Remove ${name}`} size="sm" onClick={onRemove} />
+        </div>
+      </div>
+      <p className="col-span-full -mt-1 hidden text-xs tabular-nums text-muted md:block">{span ? `${name}: ` : ''}{reading(o)}</p>
+    </div>
+  )
+}

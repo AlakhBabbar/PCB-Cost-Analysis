@@ -1,0 +1,5 @@
+backend/venv
+backend/test_files
+backend/tests
+**/__pycache__
+.claude
