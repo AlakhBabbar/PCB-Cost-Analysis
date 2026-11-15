@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, Field, Input, Textarea, linkClass } from '../../../../components/ui'
+import { Button, Field, Input, PasswordInput, Textarea, linkClass } from '../../../../components/ui'
 import { useShake } from '../../../../components/motion'
 import { signup } from '../../../../api/auth'
 import AuthLayout from './AuthLayout'
@@ -9,7 +9,7 @@ const FIELDS = [
   ['name', 'Name', { autoComplete: 'name', autoFocus: true }],
   ['phone', 'Phone', { type: 'tel', autoComplete: 'tel', minLength: 5 }],
   ['email', 'Email', { type: 'email', autoComplete: 'email' }],
-  ['password', 'Password', { type: 'password', autoComplete: 'new-password', minLength: 8 }, 'At least 8 characters'],
+  ['password', 'Password', { autoComplete: 'new-password', minLength: 8 }, 'At least 8 characters'],
 ]
 
 export default function SignupPage() {
@@ -40,7 +40,9 @@ export default function SignupPage() {
       footer={<>Already approved? <Link to="/admin/login" className={linkClass}>Sign in</Link></>}>
       {FIELDS.map(([id, label, props, help]) => (
         <Field key={id} label={label} htmlFor={id} help={help}>
-          <Input id={id} name={id} required pattern={id === 'password' ? undefined : '.*\\S.*'} {...props} />
+          {id === 'password'
+            ? <PasswordInput id={id} name={id} required {...props} />
+            : <Input id={id} name={id} required pattern=".*\S.*" {...props} />}
         </Field>
       ))}
       <Field label="Note (optional)" htmlFor="note" help="Who you are and why you need access">
