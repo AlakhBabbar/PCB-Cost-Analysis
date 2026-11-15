@@ -1,34 +1,23 @@
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.concurrency import run_in_threadpool
-from pydantic import ValidationError
+from fastapi import APIRouter, Depends, HTTPException
 
+from backend.core.ratelimit import limit
+from backend.core.session import session_id
 from backend.core.settings import settings
-from backend.models.order import Customer, OrderResponse
-from backend.models.pricing import QuoteRequest
-from backend.routers.gerber import read_zip
-from backend.services.orders import place_order
-from backend.services.pricing.quote import calculate_quote, public_quote
-from backend.services.pricing.store import get_config
+from backend.models.order import OrderRequest, OrderResponse
+from backend.routers.pricing import price
+from backend.services.orders import FileNotUsable, place_order
 
 router = APIRouter(prefix="/api", tags=["order"])
 
 
-def _errors(exc: ValidationError) -> list[dict]:
-    return [{"field": ".".join(map(str, e["loc"])), "msg": e["msg"].removeprefix("Value error, ")} for e in exc.errors()]
-
-
-@router.post("/order", response_model=OrderResponse)
-async def order(quote: str = Form(...), customer: str = Form(...), file: UploadFile = File(...)):
+@router.post("/order", response_model=OrderResponse, dependencies=[Depends(limit("order", 5, 60))])
+def order(body: OrderRequest, sid: str | None = Depends(session_id)):
     if not settings.woo_enabled:
         raise HTTPException(503, "Online ordering is not set up yet")
+    full, quote = price(body.quote)
+    if getattr(quote, "manual", False):
+        raise HTTPException(422, "This board needs a custom price. Send it as a quote request instead.")
     try:
-        req = QuoteRequest.model_validate_json(quote)
-        cust = Customer.model_validate_json(customer)
-    except ValidationError as exc:
-        raise HTTPException(422, _errors(exc))
-    name, data = await read_zip(file)
-    try:
-        priced = public_quote(calculate_quote(req, get_config()))
-    except ValueError as exc:
+        return place_order(body.quote, full, quote, body.customer, body.uploadId, sid)
+    except FileNotUsable as exc:
         raise HTTPException(422, str(exc))
-    return await run_in_threadpool(place_order, req, priced, cust, data, name)

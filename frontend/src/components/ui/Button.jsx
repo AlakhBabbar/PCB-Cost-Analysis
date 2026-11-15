@@ -1,23 +1,23 @@
+import { Link } from 'react-router-dom'
 import Spinner from './Spinner'
+import { VARIANTS, cx, focusRing } from './styles'
 
-const VARIANTS = {
-  primary: 'bg-slate-900 text-white hover:bg-slate-800 disabled:bg-slate-300',
-  secondary: 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 disabled:text-slate-300',
-  ghost: 'text-slate-600 hover:bg-slate-100 disabled:text-slate-300',
-  danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300',
+const SIZES = {
+  sm: 'h-10 md:h-8 px-3 text-[14px] md:text-[13px] gap-1.5',
+  md: 'h-11 md:h-9 px-4 text-[15px] md:text-sm gap-2',
+  lg: 'h-12 px-5 text-base gap-2',
 }
-const SIZES = { sm: 'h-8 px-3 text-xs gap-1.5', md: 'h-10 px-4 text-sm gap-2', lg: 'h-12 px-5 text-base gap-2' }
 
-export default function Button({ variant = 'primary', size = 'md', icon: Icon, loading, className = '', children, ...props }) {
-  return (
-    <button
-      type="button"
-      disabled={loading || props.disabled}
-      className={`inline-flex items-center justify-center rounded-lg font-medium transition-colors disabled:cursor-not-allowed ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
-      {...props}
-    >
-      {loading ? <Spinner size={14} /> : Icon ? <Icon className="w-4 h-4" /> : null}
+export default function Button({ variant = 'primary', size = 'md', icon: Icon, iconRight: IconRight, loading, to, href, className = '', children, ...props }) {
+  const cls = cx('press inline-flex shrink-0 items-center justify-center rounded-lg font-medium whitespace-nowrap select-none disabled:cursor-not-allowed', VARIANTS[variant], SIZES[size], focusRing, className)
+  const inner = (
+    <>
+      {loading ? <Spinner size={15} className={variant === 'primary' || variant === 'danger' ? 'text-white/80' : ''} /> : Icon ? <Icon className="w-4 h-4 shrink-0" /> : null}
       {children}
-    </button>
+      {IconRight && <IconRight className="w-4 h-4 shrink-0" />}
+    </>
   )
+  if (to) return <Link to={to} className={cls} {...props}>{inner}</Link>
+  if (href) return <a href={href} className={cls} {...props}>{inner}</a>
+  return <button type="button" disabled={loading || props.disabled} aria-busy={loading || undefined} className={cls} {...props}>{inner}</button>
 }

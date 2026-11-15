@@ -11,7 +11,7 @@ from backend.services import admins
 from backend.tests.conftest import add_admin
 
 client = TestClient(app)
-SIGNUP = {"name": "Ann", "phone": "98765 43210", "email": "Ann@X.com", "password": "longenough", "note": "ops"}
+SIGNUP = {"name": "Tester", "phone": "98765 43210", "email": "Tee@X.com", "password": "longenough", "note": "ops"}
 
 
 def test_password_hash():
@@ -29,10 +29,11 @@ def test_token():
 
 
 def test_signup(db):
+    db = db.tables["admin_users"]
     r = client.post("/api/auth/signup", json=SIGNUP)
     assert r.status_code == 201 and r.json() == {"status": "pending"}
-    assert db[0]["email"] == "ann@x.com" and db[0]["status"] == "pending" and db[0]["password_hash"] != "longenough"
-    r = client.post("/api/auth/signup", json={**SIGNUP, "email": "ann@x.com"})
+    assert db[0]["email"] == "tee@x.com" and db[0]["status"] == "pending" and db[0]["password_hash"] != "longenough"
+    r = client.post("/api/auth/signup", json={**SIGNUP, "email": "tee@x.com"})
     assert r.status_code == 409 and r.json()["detail"] == "An account with this email already exists"
 
 
@@ -42,19 +43,20 @@ def test_signup_validation(db):
 
 
 def test_signin_flow(db):
+    db = db.tables["admin_users"]
     client.post("/api/auth/signup", json=SIGNUP)
-    creds = {"email": "ann@x.com", "password": "longenough"}
+    creds = {"email": "tee@x.com", "password": "longenough"}
     r = client.post("/api/auth/signin", json=creds)
     assert r.status_code == 403 and r.json()["detail"] == "pending"
     admins.approve(db[0]["id"])
     for bad in ({**creds, "password": "wrongpass"}, {**creds, "email": "who@x.com"}):
         r = client.post("/api/auth/signin", json=bad)
         assert r.status_code == 401 and r.json()["detail"] == "Invalid email or password"
-    r = client.post("/api/auth/signin", json={**creds, "email": " ANN@x.com"})
-    assert r.status_code == 200 and r.json()["user"] == {"id": db[0]["id"], "name": "Ann", "email": "ann@x.com"}
+    r = client.post("/api/auth/signin", json={**creds, "email": " TEE@x.com"})
+    assert r.status_code == 200 and r.json()["user"] == {"id": db[0]["id"], "name": "Tester", "email": "tee@x.com", "role": "owner"}
     assert db[0]["last_sign_in_at"]
     me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {r.json()['token']}"})
-    assert me.status_code == 200 and me.json() == {"id": db[0]["id"], "name": "Ann", "email": "ann@x.com", "phone": "98765 43210", "status": "approved"}
+    assert me.status_code == 200 and me.json() == {"id": db[0]["id"], "name": "Tester", "email": "tee@x.com", "phone": "98765 43210", "status": "approved", "role": "owner"}
 
 
 def test_deleted_user_rejected(db):
@@ -67,3 +69,13 @@ def test_deleted_user_rejected(db):
 def test_bad_tokens(db):
     for h in ({}, {"Authorization": "Bearer junk"}, {"Authorization": "Basic x"}):
         assert client.get("/api/auth/me", headers=h).status_code == 401
+
+
+def test_signin_rate_limited(db):
+    codes = [client.post("/api/auth/signin", json={"email": "x@x.com", "password": "nope"}).status_code for _ in range(11)]
+    assert codes[-1] == 429 and r"Too many" in client.post("/api/auth/signin", json={}).json()["detail"]
+
+
+def test_role_from_column(db):
+    _, h = add_admin("m@x.com", role="manager")
+    assert client.get("/api/auth/me", headers=h).json()["role"] == "manager"

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getOptions, getQuote } from '../../api/quote'
+import { getOptions, getQuote } from '../../api/pricing'
 import { initialQuote, snapToOption, toQuoteBody } from './defaults'
-
-const UNREACHABLE = 'Pricing service is unreachable. Please try again shortly.'
+import { errorText } from '../../lib/errorText'
+import { sessionId } from './session'
 
 export function useOptions(onLoad) {
   const [options, setOptions] = useState(null)
@@ -11,7 +11,7 @@ export function useOptions(onLoad) {
     setError(null)
     getOptions()
       .then((o) => { setOptions(o); onLoad(initialQuote(o)) })
-      .catch((e) => setError(e.status ? e.message : UNREACHABLE))
+      .catch((e) => setError(errorText(e)))
   }, [onLoad])
   useEffect(load, [load])
   return { options, error, retry: load }
@@ -36,9 +36,9 @@ export default function useQuote() {
     let live = true
     const t = setTimeout(() => {
       setLoading(true)
-      getQuote(body)
+      getQuote(body, sessionId())
         .then((q) => { if (live) { setQuote(q); setError(null) } })
-        .catch((e) => { if (live) { setQuote(null); setError(e.status ? e.message : UNREACHABLE) } })
+        .catch((e) => { if (live) { setQuote(null); setError({ message: errorText(e), blocked: e.status === 422 }) } })
         .finally(() => { if (live) setLoading(false) })
     }, 400)
     return () => { live = false; clearTimeout(t) }

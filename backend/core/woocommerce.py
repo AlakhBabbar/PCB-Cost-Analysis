@@ -30,3 +30,7 @@ def create_order(order: dict) -> dict:
 def add_order_note(order_id: int, note: str) -> dict:
     """Private note, visible to the shop admin only."""
     return _request("POST", f"orders/{order_id}/notes", json={"note": note, "customer_note": False})
+
+
+def get_order(order_id: int) -> dict:
+    return _request("GET", f"orders/{order_id}")

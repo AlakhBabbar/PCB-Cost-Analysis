@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     wc_secret: str = ""
     wc_product_id: int = 0
     gerber_bucket: str = "gerbers"
+    wc_webhook_secret: str = ""
 
     @property
     def woo_enabled(self) -> bool:

@@ -1,6 +1,8 @@
-// options: array of strings or { value, label, color }
+import { focusRing } from './styles'
+
+// Wrapping choice buttons. options: strings or { value, label, color }
 export default function ToggleGroup({ options, value, onChange, size = 'md' }) {
-  const pad = size === 'sm' ? 'h-8 px-2.5 text-xs' : 'h-10 px-3.5 text-sm'
+  const pad = size === 'sm' ? 'h-10 md:h-8 px-2.5 text-[13px] md:text-xs' : 'h-11 md:h-9 px-3.5 text-[15px] md:text-sm'
   return (
     <div className="flex flex-wrap gap-2" role="radiogroup">
       {options.map((opt) => {
@@ -15,8 +17,8 @@ export default function ToggleGroup({ options, value, onChange, size = 'md' }) {
             role="radio"
             aria-checked={active}
             onClick={() => onChange(key)}
-            className={`inline-flex items-center gap-2 rounded-lg border font-medium transition-colors ${pad} ${
-              active ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+            className={`press inline-flex items-center gap-2 rounded-lg border font-medium ${pad} ${focusRing} ${
+              active ? 'bg-ink border-ink text-white' : 'bg-white border-line text-ink shadow-hair hover:border-line-strong'
             }`}
           >
             {color && <span className="w-3 h-3 rounded-full border border-black/10" style={{ background: color }} />}

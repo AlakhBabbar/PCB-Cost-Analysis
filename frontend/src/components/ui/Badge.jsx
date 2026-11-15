@@ -1,15 +1,17 @@
 const TONES = {
-  neutral: 'bg-slate-100 text-slate-600',
-  success: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  warning: 'bg-amber-50 text-amber-700 border border-amber-200',
-  danger: 'bg-red-50 text-red-700 border border-red-200',
-  info: 'bg-blue-50 text-blue-700 border border-blue-200',
+  neutral: ['bg-[#ececea] text-[#4d4d4a]', 'bg-[#8f8f8a]'],
+  good: ['bg-[#dff0e7] text-[#0b5a40]', 'bg-[#1a8a5c]'],
+  wait: ['bg-[#fbefd6] text-[#7a4e00]', 'bg-[#d39417]'],
+  alert: ['bg-[#fbe3df] text-[#9b2215]', 'bg-[#d43c2b]'],
+  info: ['bg-[#e2ebf8] text-[#1d4a8f]', 'bg-[#3b6fc4]'],
 }
+const ALIAS = { success: 'good', warning: 'wait', danger: 'alert' }
 
-export default function Badge({ tone = 'neutral', icon: Icon, className = '', children }) {
+export default function Badge({ tone = 'neutral', icon: Icon, dot = true, className = '', children }) {
+  const [cls, dotCls] = TONES[ALIAS[tone] ?? tone] ?? TONES.neutral
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${TONES[tone]} ${className}`}>
-      {Icon && <Icon className="w-3 h-3" />}
+    <span className={`inline-flex h-5 shrink-0 items-center gap-1.5 rounded-full px-2 text-[12px] font-medium leading-none whitespace-nowrap ${cls} ${className}`}>
+      {Icon ? <Icon className="w-3 h-3" /> : dot && <span className={`w-1.5 h-1.5 rounded-full ${dotCls}`} aria-hidden="true" />}
       {children}
     </span>
   )

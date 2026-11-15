@@ -1,12 +1,14 @@
-export const inputClass =
-  'w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-400'
+import { inputClass } from './styles'
 
-export default function Input({ suffix, className = '', ...props }) {
-  if (!suffix) return <input className={`${inputClass} ${className}`} {...props} />
+const affix = 'absolute top-1/2 -translate-y-1/2 text-[13px] md:text-xs text-faint pointer-events-none'
+
+export default function Input({ prefix, suffix, className = '', inputClassName = '', ...props }) {
+  if (!suffix && !prefix) return <input className={`${inputClass} ${className}`} {...props} />
   return (
     <div className={`relative ${className}`}>
-      <input className={`${inputClass} pr-12`} {...props} />
-      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">{suffix}</span>
+      {prefix && <span className={`${affix} left-3`}>{prefix}</span>}
+      <input className={`${inputClass} ${prefix ? 'pl-8' : ''} ${suffix ? 'pr-14' : ''} ${inputClassName}`} {...props} />
+      {suffix && <span className={`${affix} right-3`}>{suffix}</span>}
     </div>
   )
 }

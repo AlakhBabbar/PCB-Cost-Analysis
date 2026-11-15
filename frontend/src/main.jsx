@@ -2,20 +2,27 @@ import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
-import Spinner from './components/ui/Spinner'
+import { MotionProvider } from './components/motion'
+import { ConfirmProvider, Spinner, ToastProvider } from './components/ui'
 
 const QuotePage = lazy(() => import('./features/quote/QuotePage'))
-const AdminApp = lazy(() => import('./features/admin/AdminApp'))
+const AdminApp = lazy(() => import('./features/admin/shell/AdminApp'))
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <Suspense fallback={<div className="min-h-screen grid place-items-center"><Spinner /></div>}>
-        <Routes>
-          <Route path="/" element={<QuotePage />} />
-          <Route path="/admin/*" element={<AdminApp />} />
-        </Routes>
-      </Suspense>
-    </BrowserRouter>
+    <MotionProvider>
+      <BrowserRouter>
+        <ToastProvider>
+          <ConfirmProvider>
+            <Suspense fallback={<div className="min-h-dvh grid place-items-center"><Spinner /></div>}>
+              <Routes>
+                <Route path="/" element={<QuotePage />} />
+                <Route path="/admin/*" element={<AdminApp />} />
+              </Routes>
+            </Suspense>
+          </ConfirmProvider>
+        </ToastProvider>
+      </BrowserRouter>
+    </MotionProvider>
   </React.StrictMode>,
 )

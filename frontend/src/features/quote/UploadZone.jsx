@@ -14,9 +14,9 @@ export default function UploadZone({ onFile, fileName, loading }) {
       onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
       onDragLeave={() => setDragging(false)}
       onDrop={drop}
-      className={`flex items-center gap-3 rounded-xl border-2 border-dashed cursor-pointer transition-colors has-focus-visible:ring-2 has-focus-visible:ring-emerald-200 ${
+      className={`flex items-center gap-3 rounded-xl border-2 border-dashed cursor-pointer transition-colors has-focus-visible:ring-2 has-focus-visible:ring-accent/30 ${
         fileName ? 'p-3' : 'flex-col p-6 text-center'
-      } ${dragging ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
+      } ${dragging ? 'border-accent bg-accent-soft' : 'border-line-strong bg-white hover:border-faint'}`}
     >
       <input
         type="file"
@@ -24,18 +24,18 @@ export default function UploadZone({ onFile, fileName, loading }) {
         className="sr-only"
         onChange={(e) => { if (e.target.files[0]) onFile(e.target.files[0]); e.target.value = '' }}
       />
-      <span className="grid place-items-center w-10 h-10 shrink-0 rounded-full bg-slate-100 text-slate-500">
+      <span className="grid place-items-center w-10 h-10 shrink-0 rounded-full bg-sunken text-muted">
         {loading ? <Spinner /> : fileName ? <FileArchive className="w-5 h-5" /> : <Upload className="w-5 h-5" />}
       </span>
       {fileName ? (
         <span className="flex-1 min-w-0">
-          <span className="block text-sm font-medium text-slate-900 truncate">{fileName}</span>
-          <span className="block text-xs text-slate-500">{loading ? 'Reading Gerber data' : 'Choose another ZIP to replace'}</span>
+          <span className="block text-[15px] md:text-sm font-medium text-ink truncate">{fileName}</span>
+          <span className="block text-[13px] md:text-xs text-muted">{loading ? 'Reading Gerber data' : 'Choose another ZIP to replace'}</span>
         </span>
       ) : (
         <span>
-          <span className="block text-sm font-semibold text-slate-900">{dragging ? 'Drop to upload' : 'Upload Gerber ZIP'}</span>
-          <span className="block text-xs text-slate-500 mt-0.5">Drag here or browse. ZIP only, max 50 MB</span>
+          <span className="block text-[15px] md:text-sm font-semibold text-ink">{dragging ? 'Drop to upload' : 'Upload Gerber ZIP'}</span>
+          <span className="block text-[13px] md:text-xs text-muted mt-0.5">Drag here or browse. ZIP only, max 50 MB</span>
         </span>
       )}
     </label>

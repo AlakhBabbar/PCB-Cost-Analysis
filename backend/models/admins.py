@@ -31,6 +31,7 @@ class AdminUser(BaseModel):
     email: str
     note: str | None
     status: Literal["pending", "approved"]
+    role: Literal["owner", "manager", "staff"]
     createdAt: str
     lastSignInAt: str | None
     isYou: bool
@@ -39,6 +40,6 @@ class AdminUser(BaseModel):
 def to_admin_user(row: dict, caller_id: str) -> AdminUser:
     return AdminUser(
         id=row["id"], name=row["name"], phone=row["phone"], email=row["email"], note=row.get("note"),
-        status=row["status"], createdAt=row["created_at"], lastSignInAt=row.get("last_sign_in_at"),
+        status=row["status"], role=row.get("role") or "owner", createdAt=row["created_at"], lastSignInAt=row.get("last_sign_in_at"),
         isYou=row["id"] == caller_id,
     )

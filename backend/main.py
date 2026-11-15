@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.core.settings import settings
 from backend.core.supabase import SupabaseError
 from backend.core.woocommerce import WooError
-from backend.routers import admin, auth, gerber, order, pricing
+from backend.routers import admin, admin_pricing, auth, checkout, gerber, order, pricing, sales, system, woo_webhook
 from backend.services.pricing.store import ConfigUnavailable, load_config
 
 app = FastAPI(title="PCB Quote API")
@@ -24,7 +24,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-for r in (gerber, pricing, order, auth, admin):
+for r in (gerber, pricing, checkout, order, woo_webhook, auth, admin, admin_pricing, sales, system):
     app.include_router(r.router)
 
 
@@ -35,7 +35,7 @@ def supabase_error(_, exc: SupabaseError):
 
 @app.exception_handler(WooError)
 def woo_error(_, exc: WooError):
-    return JSONResponse({"detail": f"Could not create the order in the shop. {exc}"[:300]}, status_code=502)
+    return JSONResponse({"detail": f"The shop did not answer as expected. {exc}"[:300]}, status_code=502)
 
 
 @app.exception_handler(ConfigUnavailable)
@@ -45,11 +45,7 @@ def config_unavailable(_, exc):
 
 @app.get("/api/health")
 def health():
-    try:
-        load_config()
-        return {"ok": True, "pricing": "ok"}
-    except ConfigUnavailable:
-        return {"ok": True, "pricing": "unavailable"}
+    return {"ok": True, "pricing": "ok" if load_config()[2] else "defaults"}
 
 
 DIST = PROJECT_ROOT / "frontend" / "dist"

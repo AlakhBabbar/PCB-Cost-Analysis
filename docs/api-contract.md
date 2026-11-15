@@ -1,129 +1,181 @@
-# API contract
+# API contract (v2)
 
-Base URL from `VITE_API_URL` (default http://127.0.0.1:8000). Errors: `{ "detail": "message" }` with 4xx/5xx.
+Base URL from `VITE_API_URL` (default http://127.0.0.1:8000). JSON is camelCase. Errors are `{ "detail": "message" }`; validation errors are FastAPI's standard 422 `{ "detail": [{ "loc": ["body", "customer", "email"], "msg": "..." }] }`. Supabase failures answer 502, WooCommerce failures 502.
 
-Pricing lives only in Supabase; there are no built-in defaults. Any endpoint that needs the pricing config returns 503 `{ "detail": "Pricing config is not available" }` when it cannot be loaded (tables missing, no `pricing_policy` row, bad data, network).
+Rate limits per client IP (429 `"Too many requests. Please wait a minute."`): quote 120/min, parse 10/min, checkout 30/min, order 5/min, sign in 10/min, sign up 5/hour.
+
+The browser makes a session id (uuid in localStorage) and sends it as header `X-Session-Id` on quote, parse, checkout and order. A missing or malformed id is ignored (no tracking), except on checkout where it is required.
 
 ## Public
 
 ### GET /api/health
-`{ "ok": true, "pricing": "ok" | "unavailable" }`
-
-### POST /api/gerber/parse (multipart, field `file`, .zip only, max 50 MB)
-Returns ParsedGerberResult (see backend/models/gerber.py). Frontend uses: dimensions.width_mm, dimensions.height_mm, copper_layer_count, drill.min_drill_mm, layers[], layer_count, warnings[].
+`{ "ok": true, "pricing": "ok" | "defaults" }` (`defaults` means the pricing tables are not set up and the built in defaults are served).
 
 ### GET /api/pricing/options
-Option lists for the quote form, derived from admin lookups (`orderType` is the `order_types` table in `sort_order`).
-```json
-{
-  "orderType": ["Bare PCB","PCBA","Assembly Only"],
-  "layers": ["1","2","4","6","8"],
-  "thickness": ["0.6","0.8","1.0","1.2","1.6","2.0","2.4","3.2"],
-  "copper": ["0.5","1","1.5","2","3","4"],
-  "material": ["FR4 TG130","FR4 TG150","FR4 TG170","High-Freq","Aluminum"],
-  "maskColor": ["Green","Blue","Red","Black","White","Yellow","Purple"],
-  "silkscreen": ["White","Black","Yellow","None"],
-  "finish": ["HASL","HASL-LF","ENIG-1","ENIG-2","ENIG-3","ImmTin","ImmSilver","OSP"],
-  "traceSpace": ["6/6","5/5","4/4","3/3"],
-  "minHole": ["0.40","0.30","0.25","0.20","0.15"],
-  "ipcStd": ["IPC-2","IPC-3"],
-  "testing": ["FlyingProbe","Fixture","None"],
-  "express": ["Standard","Urgent"],
-  "specials": ["impedance","blindVias","goldFingers","halfHole","resinPlug","metalEdge","halogenFree"]
-}
-```
+Option lists for the quote form, built from the pricing config.
 
 ### POST /api/quote
-Request (all strings except numbers and specials; `specials` keys must be in the specials option list, missing keys mean false):
+Body: QuoteRequest
 ```json
-{
-  "boardW": 130, "boardL": 80, "quantity": 275,
-  "layers": "2", "orderType": "Bare PCB", "thickness": "1.6", "copper": "1",
-  "material": "FR4 TG130", "maskColor": "Green", "silkscreen": "White",
-  "finish": "HASL-LF", "traceSpace": "6/6", "minHole": "0.30", "ipcStd": "IPC-2",
-  "testing": "FlyingProbe", "express": "Standard",
-  "specials": { "impedance": false, "blindVias": false, "goldFingers": false, "halfHole": false, "resinPlug": false, "metalEdge": false, "halogenFree": false }
-}
+{ "boardW": 130, "boardL": 80, "quantity": 275, "layers": "2", "orderType": "Bare PCB", "thickness": "1.6",
+  "copper": "1", "material": "FR4 TG130", "maskColor": "Green", "silkscreen": "White", "finish": "HASL-LF",
+  "traceSpace": "6/6", "minHole": "0.30", "ipcStd": "IPC-2", "testing": "FlyingProbe", "express": "Standard",
+  "specials": { "impedance": false } }
 ```
-Response (customer safe, no cost or competitor data):
+Response:
 ```json
-{
-  "pricePerBoard": 73.11, "quantity": 275, "engFee": 0,
-  "subtotal": 20105.25, "gstPct": 18, "gst": 3618.95, "total": 23724.2,
-  "delivery": "7-10 working days",
-  "panel": { "boardsPerPanel": 12, "perRow": 4, "perCol": 3, "utilizationPct": 78.2, "panelsNeeded": 23 },
-  "summary": { "Board": "130 x 80 mm", "Layers": "2", "Thickness": "1.6 mm", "Copper": "1 oz", "Surface finish": "HASL-LF", "Trace/space": "6/6 mil", "Min hole": "0.30 mm", "Solder mask": "Green", "IPC class": "IPC-2", "Testing": "FlyingProbe", "Production": "Standard", "Special reqs": "None" }
-}
+{ "pricePerBoard": 73.11, "quantity": 275, "engFee": 0, "subtotal": 20105.25, "gstPct": 18, "gst": 3618.95,
+  "total": 23724.2, "delivery": "7-10 working days",
+  "summary": { "Order type": "Bare PCB", "Board": "130 x 80 mm", "Layers": "2", "Material": "FR4 TG130", "Silkscreen": "White", "...": "..." },
+  "manual": false, "manualReason": null }
 ```
-Invalid option values return 422 with `detail` naming the field.
+422 with the rule message when the board is blocked. `manual: true` means no price; send a quote request through `/api/checkout` with `kind: "manual"`. In the background the session is saved with stage `quoted` (a later stage is never lowered).
 
-## Admin (Authorization: Bearer <token from /api/auth/signin>; 401 if missing, invalid, expired, or the user is not approved or no longer exists)
-
-### GET /api/admin/pricing
+### POST /api/gerber/parse (multipart, field `file`, .zip only, max 50 MB)
+The zip is inspected first (max 500 entries, max 250 MB unpacked, no absolute or parent paths): 400 with a plain message otherwise. Response is ParsedGerberResult (backend/models/gerber.py) plus:
 ```json
-{ "rates": {...}, "lookups": {...}, "constants": {...}, "updatedAt": "2026-09-30T10:00:00Z" }
+{ "uploadId": "uuid" | null, "ok": true }
 ```
-Shapes and keys exactly as docs/pricing-model.md. Lookup maps are `{ "option": number }`; `autoMarkup` is `[[qtyCeiling, fraction], ...]`; `deliveryText` values are strings; `materialOptions` and `silkscreenOptions` are string arrays; `orderTypes` is `{ "Bare PCB": false, "PCBA": true, ... }` (value = includes assembly, key order = sort order); `competitors` is `[{ "name": "JLCPCB", "model": "usd_import" | "inr_domestic", "note": "China + DHL + duty", "isBareSource": true, "params": { "min_qty_cap": 5, ... } }, ...]` in sort order.
+`ok` is false when `errors` is not empty or there are no dimensions. If the file could not be saved, `uploadId` is null and `errors` says so. Only an `ok` upload can be ordered.
 
-### PUT /api/admin/pricing
-Body: `{ "rates": {...}, "lookups": {...}, "constants": {...} }` (full replace, every field required). Validated by pydantic; returns same shape as GET. Rate rows keep their `group_name` and `unit` from the database; rate keys the config does not know are left untouched.
-
-### POST /api/admin/quote
-Body: same as /api/quote plus optional `"overrides": { "rates": {...partial}, "constants": {...partial} }` for what-if analysis.
-Response: everything from /api/quote plus:
+### POST /api/checkout (204)
 ```json
-{
-  "costPerBoard": 66.46, "orderCost": 18276, "listPerBoard": 73.11, "pricingMode": "auto-beat" | "markup", "markupPct": 10,
-  "produced": 275, "costHeads": [ { "item": "Bare PCB (JLCPCB)", "amount": 62.1, "sharePct": 93.4 }, ... ],
-  "profit": { "perBoard": 6.65, "total": 1829, "marginPct": 9.1 },
-  "competitors": [ { "name": "JLCPCB", "bare": 62.1, "landed": 76.96, "total": 24973, "note": "China + DHL + duty" }, ... ],
-  "cheapest": { "name": "JLCPCB", "landed": 76.96 },
-  "savings": { "perBoard": 3.85, "pct": 5.0 },
-  "breakEvenBoards": 1234 | null,
-  "monthly": { "labour": 21240, "energy": 12000, "overheads": 54000, "kwh": 1123 }
-}
+{ "kind": "checkout" | "manual",
+  "contact": { "firstName": "", "lastName": "", "email": "", "phone": "", "company": "" },
+  "note": "optional", "quote": { "...QuoteRequest": "optional" } }
 ```
+All contact fields optional; email and phone are validated when given. Requires `X-Session-Id` (400 otherwise). Sets the session stage to `checkout_started` or `manual_requested`.
 
-## Auth (no token needed except /me)
-Backend issues its own HS256 JWT (`JWT_SECRET`, valid `JWT_EXPIRES_HOURS`, default 168) with `sub` = admin_users id and `email`. Frontend stores it and sends `Authorization: Bearer <token>`.
+### POST /api/order
+```json
+{ "uploadId": "uuid", "quote": { "...QuoteRequest": "" },
+  "customer": { "firstName": "Asha", "lastName": "Rao", "email": "a@x.com", "phone": "9876543210",
+                "company": "optional", "gstin": "optional, 15 chars",
+                "address1": "12 MG Road", "address2": "", "city": "Agra", "state": "UP", "postcode": "282005", "note": "" } }
+```
+Response `{ "orderId": 6412, "paymentUrl": "https://shop/checkout/order-pay/..." }` (`orderId` is the WooCommerce order id).
+The price is recomputed on the server. 503 when WooCommerce is not configured, 422 when the quote is `manual`, the board is blocked, or the stored file could not be read. Typed specs that disagree with the parsed file (size beyond 2 mm, copper layers, smallest hole) do not reject; the order gets `needsReview` with plain reasons. Every summary entry is shown on the WooCommerce line item; company goes to billing, GSTIN and company to order meta. The order note says the file is in the admin panel (no link).
+
+### POST /api/woo/webhook
+WooCommerce webhook, topic "Order updated". Header `X-WC-Webhook-Signature` must be the base64 HMAC SHA256 of the raw body with `WC_WEBHOOK_SECRET` (401 otherwise, 503 when the secret is not set). The creation ping (`webhook_id=...`, form encoded) answers 200. Unknown order ids answer `{ "ok": true, "handled": false }`.
+Status map: `processing`, `completed` -> `paid`; `pending`, `on-hold` -> `pending`; `failed`, `refunded`, `cancelled` -> same.
+
+## Auth
+
+Backend issues its own HS256 JWT (`JWT_SECRET`, `JWT_EXPIRES_HOURS`, default 168). Send `Authorization: Bearer <token>`. Admin routes answer 401 when the token is missing, invalid, expired, or the user is not approved or gone; 403 `"Your role cannot do this"` when the role is too low.
 
 ### POST /api/auth/signup (201)
-Body: `{ "name": "Ann", "phone": "min 5 chars", "email": "a@x.com", "password": "min 8 chars", "note": "optional" }`. Email is lowercased. Creates a pending account and returns `{ "status": "pending" }`. 409 `"An account with this email already exists"`, 422 on bad input.
+`{ "name", "phone" (min 5), "email", "password" (min 8), "note"? }` -> `{ "status": "pending" }`. 409 when the email exists.
 
 ### POST /api/auth/signin
-Body: `{ "email": "a@x.com", "password": "..." }`. Returns `{ "token": "jwt", "user": { "id": "uuid", "name": "Ann", "email": "a@x.com" } }`. 401 `"Invalid email or password"`; 403 with detail `"pending"` when the account is not approved yet.
+`{ "email", "password" }` -> `{ "token", "user": { "id", "name", "email", "role" } }`. 401 `"Invalid email or password"`, 403 `"pending"`.
 
 ### GET /api/auth/me
-Returns `{ "id", "name", "email", "phone", "status": "approved" }`; 401 as for admin routes.
+`{ "id", "name", "email", "phone", "status", "role" }`.
 
-## Team (admin)
+Roles: `staff` (sales), `manager` (sales and pricing), `owner` (everything). Before `003_records.sql` runs there is no role column and every approved admin counts as `owner`.
 
-### GET /api/admin/users
-All accounts, pending first, then by `createdAt`.
+## Admin: sales (staff and up)
+
+Records endpoints need `supabase/migrations/003_records.sql`. Before it runs, lists answer `{ "items": [], "total": 0, "ready": false }`, summary answers `ready: false`, and detail or write endpoints answer 503 with the setup message.
+
+Lists take `page` (from 1), `size` (default 25, max 100) and `q` (searches the text columns), newest first, and answer `{ "items": [...], "total": 57, "ready": true }`.
+
+### GET /api/admin/summary?days=14
 ```json
-{ "users": [ { "id": "uuid", "name": "Ann", "phone": "98765 43210", "email": "a@x.com", "note": "..." | null, "status": "pending" | "approved", "createdAt": "2026-09-30T10:00:00Z", "lastSignInAt": "..." | null, "isYou": true } ] }
+{ "ready": true,
+  "today": { "orders": 2, "revenue": 23724.2, "quotes": 14, "abandoned": 1 },
+  "funnel": { "quoted": 120, "uploaded": 40, "checkout": 18, "ordered": 9, "paid": 7 },
+  "series": [{ "date": "2026-11-15", "orders": 2, "revenue": 23724.2, "quotes": 14 }],
+  "attention": [{ "kind": "review" | "paid" | "abandoned" | "manual", "label": "Orders whose file needs a check", "count": 2, "to": "/admin/orders?status=review" }] }
 ```
+Days are India time. Revenue counts paid orders. Funnel covers sessions and orders created in the window.
 
-### POST /api/admin/users/{id}/approve
-Sets status to approved. Returns one user object as above; 404 if missing.
+### GET /api/admin/orders?status=&q=&page=&size=
+`status` is a payment status (`pending|paid|failed|refunded|cancelled`), a stage (`new|file_review|in_production|quality_check|shipped|delivered|cancelled`) or `review` (needs review). Items:
+`{ id, createdAt, wooOrderId, paymentStatus, stage, needsReview, firstName, lastName, company, email, city, quantity, total }`
 
-### DELETE /api/admin/users/{id} (204)
-Deletes the account (also rejects a pending signup). 403 `"You cannot remove yourself"` when `id` is the caller.
+### GET /api/admin/orders/{id}
+```json
+{ "id", "createdAt", "updatedAt", "wooOrderId", "wooStatus", "paymentStatus", "stage", "needsReview",
+  "reviewReasons": ["..."], "customerNote", "adminNote", "paymentUrl", "sessionId", "specs": {}, "summary": {},
+  "customer": { "firstName", "lastName", "email", "phone", "company", "gstin", "address1", "address2", "city", "state", "postcode" },
+  "money": { "quantity", "pricePerBoard", "engFee", "subtotal", "gst", "total" },
+  "margin": { "costPerBoard", "perBoard", "total", "marginPct" } | null,
+  "file": { "id", "filename", "sizeBytes", "widthMm", "heightMm", "copperLayers", "minDrillMm", "parseOk", "warnings", "createdAt" } | null,
+  "timeline": [{ "id", "createdAt", "adminId", "adminName", "action", "targetType", "targetId", "detail" }] }
+```
+Timeline actions: `order_created`, `order_stage` `{from,to}`, `order_note` `{note}`, `woo_webhook` and `woo_sync` `{from,to,wooStatus}`.
 
-Supabase errors on any endpoint that needs the database return 502.
+### PATCH /api/admin/orders/{id}
+`{ "stage"?, "adminNote"? }` -> order detail.
 
-## Supabase tables
-Schema changes after the first setup ship as files in `supabase/migrations`. Tables generated by `backend/scripts/make_schema.py` into `supabase/schema.sql`, data in `supabase/seed.sql` (dumped from the live database by `backend/scripts/dump_seed.py`); every table has `updated_at` and RLS with no policies (secret key only).
-- `pricing_rates(key, group_name, unit, value)`: every numeric rate and constant, one row each.
-- `pricing_policy(id = 1, fab_source, beat_competitor, markup_override_pct)`: single row; its `updated_at` is the config's last saved time.
-- `option_factors(category, option, value, sort_order)`: layer, thickness, copper, finish, trace, hole, mask, testing and IPC factors.
-- `delivery_speeds(speed, price_factor, delivery_text, sort_order)`.
-- `special_requirements(key, surcharge_pct, eng_fee_inr, sort_order)`.
-- `markup_tiers(max_qty, markup_pct)`: auto markup ladder in percent.
-- `form_options(category, option, sort_order)`: material and silkscreen choices.
-- `order_types(option, is_assembly, sort_order)`: quote order types; `is_assembly` switches on BOM, assembly packaging and competitor assembly cost.
-- `competitors(name, model, note, is_bare_source, sort_order)`: `model` picks the formula (`usd_import` or `inr_domestic`); the cheapest `is_bare_source` row is the outsourced bare board.
-- `competitor_params(competitor, param, value)`: named numbers for each competitor's formula (see docs/pricing-model.md); cascades on competitor delete.
-- `admin_users(id, name, phone, email, password_hash, note, status, created_at, last_sign_in_at)`: panel logins; argon2 hashes, status `pending` or `approved`. Created with `if not exists`, so re-running the schema keeps it.
+### POST /api/admin/orders/{id}/sync
+Fetches the order from WooCommerce and applies the status map -> order detail.
 
-Backend reads via PostgREST (cached 60 s). Missing tables or no `pricing_policy` row mean 503, never a fallback.
+### GET /api/admin/sessions?view=abandoned|manual|browsing&q=&page=&size=
+`abandoned`: stage `checkout_started`, no order, quiet for 10 minutes. `manual`: stage `manual_requested`. `browsing`: `quoted` or `file_uploaded`. Items are session rows:
+`{ id, createdAt, updatedAt, stage, boardW, boardL, quantity, layers, orderType, pricePerBoard, total, specs, firstName, lastName, email, phone, company, note, uploadId, orderId, quoteCount, handled, adminNote }`
+
+### PATCH /api/admin/sessions/{id}
+`{ "handled"?, "adminNote"? }` -> the session row.
+
+### GET /api/admin/customers?q=&page=&size=
+Items `{ email, firstName, lastName, phone, company, orderCount, paidTotal, firstOrderAt, lastOrderAt }`, most recent buyer first.
+
+### GET /api/admin/files?q=&page=&size=
+Items are upload rows `{ id, createdAt, sessionId, orderId, filename, sizeBytes, storagePath, widthMm, heightMm, copperLayers, minDrillMm, parseOk, warnings }`.
+
+### GET /api/admin/files/{id}/link
+`{ "url": "signed link valid 5 minutes" }`. Logged as `file_link`.
+
+## Admin: pricing (manager and up)
+
+### GET /api/admin/pricing
+`{ "config": PricingConfig, "updatedAt": "..." | null, "ready": true }` (`ready: false` means built in defaults are served).
+
+### PUT /api/admin/pricing
+`{ "config": PricingConfig, "note"?: "" }` -> same shape as GET. 422 `{ "detail": [{ "where", "msg" }] }` when invalid; 503 "Run supabase/migrations/002_pricing_v2.sql in the Supabase SQL editor" when tables are missing.
+
+### GET /api/admin/pricing/defaults
+`{ "config": PricingConfig }`
+
+### GET /api/admin/pricing/versions
+`{ "items": [{ "id", "createdAt", "adminName", "note" }] }`
+
+### POST /api/admin/pricing/versions/{id}/restore
+Same shape as GET /pricing.
+
+### POST /api/admin/pricing/check
+`{ "config" }` -> `{ "ok": true, "errors": [{ "where", "msg" }] }`
+
+### POST /api/admin/quote
+`{ ...QuoteRequest, "config"?: PricingConfig }` prices with the draft when given. Response: public quote plus `costPerBoard`, `profit { perBoard, total, marginPct }`, `lines [{ key, label, section, value, adjustments [{ category, option, op, value, delta }] }]`.
+
+PricingConfig shape: see docs/v2-spec.md "Config shape".
+
+## Admin: team and system
+
+### GET /api/admin/users (owner)
+`{ "users": [{ "id", "name", "phone", "email", "note", "status": "pending" | "approved", "role": "owner" | "manager" | "staff", "createdAt", "lastSignInAt", "isYou" }] }`, pending first.
+
+### POST /api/admin/users/{id}/approve (owner)
+`{ "role" }` (optional, default `staff`) -> one user. 404 when missing.
+
+### PATCH /api/admin/users/{id} (owner)
+`{ "role" }` -> one user. 409 `"The last owner cannot be removed or demoted"`. 503 before `003_records.sql`.
+
+### DELETE /api/admin/users/{id} (owner, 204)
+403 `"You cannot remove yourself"`, 409 for the last owner.
+
+### GET /api/admin/activity?page=&size= (manager and up)
+List of activity rows (see timeline). Actions also include `team_approve`, `team_role`, `team_remove`, `session_handled`, `session_reopened`, `session_note`, `file_link`, and the pricing save rows.
+
+### GET /api/admin/store (any admin)
+`{ "wooEnabled", "storeUrl", "webhookReady", "lastWebhookAt", "pricingReady", "recordsReady" }`
+
+## Supabase
+
+Run in the SQL editor, in order, each safe to re-run: `supabase/schema.sql` (first setup), `supabase/migrations/001_engine_params.sql`, `002_pricing_v2.sql`, `003_records.sql`. Every table has RLS on with no policies (server key only). Gerber zips live in the private bucket `GERBER_BUCKET` at `uploads/{uploadId}.zip`.
+
+Records tables (`003_records.sql`): `quote_sessions`, `uploads`, `orders`, `activity_log`, view `customers`, and `admin_users.role`.

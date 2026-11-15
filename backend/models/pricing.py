@@ -3,107 +3,74 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class Rates(BaseModel):
-    panelW: float
-    panelL: float
-    routingGap: float
-    edgeMargin: float
-    yieldPct: float
-    workDays: float
-    shifts: float
-    lamRate: float
-    procRate: float
-    bom: float
-    solderPaste: float
-    consumables: float
-    compWastagePct: float
-    drillRouterWear: float
-    compFreightPct: float
-    tooling: float
-    opsPerShift: float
-    opSalary: float
-    qcSalary: float
-    supervisorSalary: float
-    benefitsPct: float
-    reworkPct: float
-    camTimeHrs: float
-    loadKw: float
-    runHours: float
-    utilPct: float
-    tariff: float
-    lighting: float
-    nitrogen: float
-    waterEffluent: float
-    rent: float
-    admin: float
-    marketing: float
-    software: float
-    maintenance: float
-    insurance: float
-    interest: float
-    misc: float
-    depreciation: float
-    esdBag: float
-    cartonPacking: float
-    shipping: float
-    bankChargesPct: float
-    warrantyPct: float
-    compliance: float
-    ohAllocPct: float
-    markupBeyondTiersPct: float
-    bareConsumablesSharePct: float
-    barePackagingSharePct: float
-    outsourceLabourSharePct: float
-    outsourceEnergySharePct: float
-    markupOverridePct: float | None = ...
-    beatCompetitor: bool
-    fabSource: Literal["outsource", "inhouse"]
+class Setting(BaseModel):
+    key: str
+    label: str
+    page: Literal["limits", "price", "factory"]
+    section: str
+    unit: str = ""
+    kind: Literal["number", "switch"] = "number"
+    value: float
+    min: float | None = 0
+    max: float | None = None
+    help: str = ""
 
 
-class Competitor(BaseModel):
-    name: str
-    model: Literal["usd_import", "inr_domestic"]
-    note: str
-    isBareSource: bool
-    params: dict[str, float]
+class Option(BaseModel):
+    name: str = Field(min_length=1)
+    label: str = ""
+    op: Literal["x", "pct", "add"]
+    value: float
+    orderFee: float = 0
+    note: str = ""
+    enabled: bool = True
 
 
-class Lookups(BaseModel):
-    orderTypes: dict[str, bool]
-    layerFactor: dict[str, float]
-    thicknessFactor: dict[str, float]
-    copperFactor: dict[str, float]
-    finishSurchargePct: dict[str, float]
-    traceFactor: dict[str, float]
-    minHoleRs: dict[str, float]
-    maskColorRs: dict[str, float]
-    testingRs: dict[str, float]
-    expressFactor: dict[str, float]
-    deliveryText: dict[str, str]
-    ipcFactor: dict[str, float]
-    specialPct: dict[str, float]
-    specialEngFee: dict[str, float]
-    autoMarkup: list[tuple[int, float]]
-    materialOptions: list[str]
-    silkscreenOptions: list[str]
-    competitors: list[Competitor]
+class Category(BaseModel):
+    key: str
+    label: str
+    target: str
+    multi: bool = False
+    help: str = ""
+    options: list[Option]
 
 
-class Constants(BaseModel):
-    usdInr: float
-    gstPct: float
-    landedFactor: float
-    importDutyPct: float
-    baseEngFee: float
-    extraLayerFee: float
-    beatCompetitorPct: float
-    camHoursPerMonth: float
+class OrderType(BaseModel):
+    name: str = Field(min_length=1)
+    makesBoard: bool
+    assembles: bool
+    enabled: bool = True
+
+
+class MarkupTier(BaseModel):
+    maxQty: int = Field(ge=1)
+    markupPct: float
+
+
+class Formula(BaseModel):
+    key: str
+    label: str
+    section: str = ""
+    expr: str
+    help: str = ""
+    locked: bool = False
+
+
+class Rule(BaseModel):
+    id: str
+    message: str = Field(min_length=1)
+    when: str
+    action: Literal["block", "manual"]
+    enabled: bool = True
 
 
 class PricingConfig(BaseModel):
-    rates: Rates
-    lookups: Lookups
-    constants: Constants
+    settings: list[Setting]
+    categories: list[Category]
+    orderTypes: list[OrderType]
+    markupTiers: list[MarkupTier]
+    formulas: list[Formula]
+    rules: list[Rule]
 
 
 class QuoteRequest(BaseModel):
@@ -126,21 +93,35 @@ class QuoteRequest(BaseModel):
     specials: dict[str, bool] = {}
 
 
-class Overrides(BaseModel):
-    rates: dict = {}
-    constants: dict = {}
-
-
 class AdminQuoteRequest(QuoteRequest):
-    overrides: Overrides | None = None
+    config: dict | None = None
 
 
-class Panel(BaseModel):
-    boardsPerPanel: int
-    perRow: int
-    perCol: int
-    utilizationPct: float
-    panelsNeeded: int
+class ConfigBody(BaseModel):
+    config: dict
+    note: str = ""
+
+
+class Adjustment(BaseModel):
+    category: str
+    option: str
+    op: str
+    value: float
+    delta: float
+
+
+class Line(BaseModel):
+    key: str
+    label: str
+    section: str
+    value: float
+    adjustments: list[Adjustment] = []
+
+
+class Profit(BaseModel):
+    perBoard: float
+    total: float
+    marginPct: float
 
 
 class QuoteResponse(BaseModel):
@@ -152,58 +133,12 @@ class QuoteResponse(BaseModel):
     gst: float
     total: float
     delivery: str
-    panel: Panel
     summary: dict[str, str]
-
-
-class CostHead(BaseModel):
-    item: str
-    amount: float
-    sharePct: float
-
-
-class Profit(BaseModel):
-    perBoard: float
-    total: float
-    marginPct: float
-
-
-class CompetitorQuote(BaseModel):
-    name: str
-    bare: float
-    landed: float
-    total: float
-    note: str
-
-
-class Cheapest(BaseModel):
-    name: str
-    landed: float
-
-
-class Savings(BaseModel):
-    perBoard: float
-    pct: float
-
-
-class Monthly(BaseModel):
-    labour: float
-    energy: float
-    overheads: float
-    kwh: float
+    manual: bool = False
+    manualReason: str | None = None
 
 
 class AdminQuoteResponse(QuoteResponse):
     costPerBoard: float
-    orderCost: float
-    listPerBoard: float
-    pricingMode: Literal["auto-beat", "markup"]
-    markupPct: float
-    produced: int
-    costHeads: list[CostHead]
     profit: Profit
-    competitors: list[CompetitorQuote]
-    cheapest: Cheapest
-    savings: Savings
-    breakEvenBoards: int | None
-    monthly: Monthly
+    lines: list[Line]

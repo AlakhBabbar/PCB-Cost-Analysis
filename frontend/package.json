@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "framer-motion": "^14.14.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.30.0",
     "pcb-stackup": "^4.2.8",
