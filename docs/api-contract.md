@@ -31,6 +31,12 @@ Response:
 ```
 422 with the rule message when the board is blocked. `manual: true` means no price; send a quote request through `/api/checkout` with `kind: "manual"`. In the background the session is saved with stage `quoted` (a later stage is never lowered).
 
+### POST /api/gerber/upload-url
+Step 1 of direct upload. Body `{ "filename": "board.zip", "size": 123456 }`. Answers `{ "uploadId", "url" }`; the browser sends the zip with `PUT url` and header `Content-Type: application/zip`. The link works once. 400 when the name is not a .zip, 413 over the limit, 503 when storage is unreachable, 404 when `DIRECT_UPLOAD` is off.
+
+### POST /api/gerber/parse-upload
+Step 2. Body `{ "uploadId", "filename" }`, header `X-Session-Id`. Reads the zip from storage, checks and parses it. Same answer as `/api/gerber/parse`. 404 when the upload is not in storage; a zip that fails the checks is removed and answers 400 or 413.
+
 ### POST /api/gerber/parse (multipart, field `file`, .zip only, max 50 MB)
 The zip is inspected first (max 500 entries, max 250 MB unpacked, no absolute or parent paths): 400 with a plain message otherwise. Response is ParsedGerberResult (backend/models/gerber.py) plus:
 ```json

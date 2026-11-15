@@ -70,17 +70,33 @@ def _storage(path: str) -> str:
 
 
 def ensure_bucket(bucket: str) -> None:
-    """Create a private bucket if it does not exist yet."""
+    """A private bucket that refuses files over the upload limit, created or updated."""
+    rules = {"public": False, "file_size_limit": settings.max_upload_mb * 1024 * 1024}
     try:
-        _send("POST", _storage("bucket"), json={"id": bucket, "name": bucket, "public": False})
+        _send("POST", _storage("bucket"), json={"id": bucket, "name": bucket, **rules})
     except SupabaseError as exc:
         if "already exists" not in str(exc).lower() and "duplicate" not in str(exc).lower():
             raise
+        _send("PUT", _storage(f"bucket/{bucket}"), json=rules)
 
 
 def upload_file(bucket: str, path: str, data: bytes, content_type: str) -> None:
     _send("POST", _storage(f"object/{bucket}/{path}"), content=data, timeout=120,
           headers={"Content-Type": content_type, "x-upsert": "true"})
+
+
+def signed_upload_url(bucket: str, path: str) -> str:
+    """A one time link the browser can PUT one file to."""
+    r = _send("POST", _storage(f"object/upload/sign/{bucket}/{path}")).json()
+    return _storage(r["url"].lstrip("/"))
+
+
+def download_file(bucket: str, path: str) -> bytes:
+    return _send("GET", _storage(f"object/{bucket}/{path}"), timeout=120).content
+
+
+def delete_file(bucket: str, path: str) -> None:
+    _send("DELETE", _storage(f"object/{bucket}/{path}"))
 
 
 def signed_url(bucket: str, path: str, expires_in: int) -> str:

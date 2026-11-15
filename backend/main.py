@@ -2,8 +2,14 @@ import sys
 import warnings
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+HERE = Path(__file__).resolve().parent
+PROJECT_ROOT = HERE.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+if HERE.name != "backend":  # deployed with this folder as the root (Vercel): keep it importable as `backend`
+    import importlib.util
+    _spec = importlib.util.spec_from_file_location("backend", HERE / "__init__.py", submodule_search_locations=[str(HERE)])
+    sys.modules["backend"] = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(sys.modules["backend"])
 warnings.filterwarnings("ignore")  # gerbonara is noisy
 
 from fastapi import FastAPI, HTTPException

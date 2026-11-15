@@ -189,3 +189,63 @@ def test_supabase_down_is_502(team, monkeypatch):
         raise admins.supabase.SupabaseError("down")
     monkeypatch.setattr(admins, "list_users", boom)
     assert client.get("/api/admin/users", headers=team).status_code == 502
+
+
+@pytest.fixture
+def bucket(monkeypatch):
+    """Storage the browser uploads to directly: {path: bytes}, with the removed paths in `gone`."""
+    files, gone = {}, []
+
+    def download(b, path):
+        if path not in files:
+            raise supabase.SupabaseError("Object not found")
+        return files[path]
+
+    monkeypatch.setattr(supabase, "ensure_bucket", lambda b: None)
+    monkeypatch.setattr(supabase, "signed_upload_url", lambda b, path: f"https://storage.test/{path}?token=t")
+    monkeypatch.setattr(supabase, "download_file", download)
+    monkeypatch.setattr(supabase, "delete_file", lambda b, path: gone.append(path))
+    return files, gone
+
+
+def ask_link(name="board.zip", size=1000):
+    return client.post("/api/gerber/upload-url", json={"filename": name, "size": size})
+
+
+def test_direct_upload_gives_a_link_then_parses_from_storage(db, bucket):
+    files, gone = bucket
+    link = ask_link().json()
+    assert link["url"] == f"https://storage.test/uploads/{link['uploadId']}.zip?token=t"
+    files[f"uploads/{link['uploadId']}.zip"] = ZIP.read_bytes()  # what the browser PUT to the link
+    r = client.post("/api/gerber/parse-upload", json={"uploadId": link["uploadId"], "filename": ZIP.name},
+                    headers={"X-Session-Id": SID})
+    body = r.json()
+    assert r.status_code == 200 and body["ok"] and body["uploadId"] == link["uploadId"]
+    (u,) = db.tables["uploads"]
+    assert u["id"] == link["uploadId"] and u["parse_ok"] and u["size_bytes"] == ZIP.stat().st_size and not gone
+    assert db.tables["quote_sessions"][0]["upload_id"] == link["uploadId"]
+
+
+def test_direct_upload_refuses_wrong_type_and_size(bucket):
+    assert ask_link("board.rar").status_code == 400
+    assert ask_link(size=51 * 1024 * 1024).status_code == 413
+
+
+def test_direct_upload_link_fails_cleanly_when_storage_is_down():
+    assert ask_link().status_code == 503
+
+
+def test_parse_upload_unknown_or_bad_file(bucket):
+    files, gone = bucket
+    missing = str(uuid.uuid4())
+    assert client.post("/api/gerber/parse-upload", json={"uploadId": missing, "filename": "a.zip"}).status_code == 404
+    assert client.post("/api/gerber/parse-upload", json={"uploadId": "not-an-id", "filename": "a.zip"}).status_code == 422
+    files[f"uploads/{missing}.zip"] = b"PK\x03\x04junk"
+    r = client.post("/api/gerber/parse-upload", json={"uploadId": missing, "filename": "a.zip"})
+    assert r.status_code == 400 and gone == [f"uploads/{missing}.zip"]
+
+
+def test_options_tell_the_form_how_to_upload():
+    o = client.get("/api/pricing/options").json()
+    assert o["maxUploadMb"] == 50 and o["directUpload"] is True
+

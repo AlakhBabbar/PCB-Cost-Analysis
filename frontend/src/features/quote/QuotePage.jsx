@@ -40,7 +40,7 @@ export default function QuotePage() {
     setParsed(null)
     setParsing(true)
     try {
-      const data = await parseGerber(f, sessionId())
+      const data = await parseGerber(f, sessionId(), q.options?.directUpload)
       setParsed(data)
       q.applyGerber(data)
     } catch (e) {
