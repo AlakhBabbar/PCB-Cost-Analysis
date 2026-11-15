@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FileArchive, Upload } from 'lucide-react'
 import { Spinner } from '../../components/ui'
 
-export default function UploadZone({ onFile, fileName, loading }) {
+export default function UploadZone({ onFile, fileName, loading, maxMb = 50 }) {
   const [dragging, setDragging] = useState(false)
   const drop = (e) => {
     e.preventDefault()
@@ -35,7 +35,7 @@ export default function UploadZone({ onFile, fileName, loading }) {
       ) : (
         <span>
           <span className="block text-[15px] md:text-sm font-semibold text-ink">{dragging ? 'Drop to upload' : 'Upload Gerber ZIP'}</span>
-          <span className="block text-[13px] md:text-xs text-muted mt-0.5">Drag here or browse. ZIP only, max 50 MB</span>
+          <span className="block text-[13px] md:text-xs text-muted mt-0.5">Drag here or browse. ZIP only, max {maxMb} MB</span>
         </span>
       )}
     </label>

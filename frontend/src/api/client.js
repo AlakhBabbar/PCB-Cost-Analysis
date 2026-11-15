@@ -1,4 +1,5 @@
-export const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+// Set VITE_API_URL to point somewhere else. Without it a build talks to its own origin and dev talks to the local API.
+export const BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '')
 
 export class ApiError extends Error {
   constructor(status, detail) {

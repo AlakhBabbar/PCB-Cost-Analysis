@@ -23,6 +23,7 @@ const orderBlocker = ({ file, parsed, parsing }) =>
 
 export default function QuotePage() {
   const q = useQuote()
+  const maxMb = q.options?.maxUploadMb ?? 50
   const [file, setFile] = useState(null)
   const [parsed, setParsed] = useState(null)
   const [parsing, setParsing] = useState(false)
@@ -34,7 +35,7 @@ export default function QuotePage() {
   const handleFile = async (f) => {
     setParseError(null)
     if (!f.name.toLowerCase().endsWith('.zip')) return setParseError('Please upload a .zip of your Gerber files.')
-    if (f.size > 50 * 1024 * 1024) return setParseError('This file is larger than 50 MB.')
+    if (f.size > maxMb * 1024 * 1024) return setParseError(`This file is larger than ${maxMb} MB.`)
     setFile(f)
     setParsed(null)
     setParsing(true)
@@ -91,7 +92,7 @@ export default function QuotePage() {
       <main className="max-w-7xl mx-auto px-4 py-4 lg:py-8 grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] items-start">
         <aside className="flex flex-col gap-4 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
           <Card title="Gerber files" description="Board size, layers and min hole fill in automatically">
-            <UploadZone onFile={handleFile} fileName={file?.name} loading={parsing} />
+            <UploadZone onFile={handleFile} fileName={file?.name} loading={parsing} maxMb={maxMb} />
             {parseError && (
               <p className="mt-3 flex gap-2 text-[13px] md:text-xs text-ink"><AlertCircle className="w-4 h-4 shrink-0 text-muted" />{parseError}</p>
             )}

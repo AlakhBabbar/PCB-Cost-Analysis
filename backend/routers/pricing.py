@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from backend.core.ratelimit import limit
 from backend.core.session import session_id
+from backend.core.settings import settings
 from backend.models.pricing import QuoteRequest
 from backend.services.pricing import options as pricing_options, quote as engine, store
 from backend.services.records import sessions
@@ -20,7 +21,7 @@ def price(req: QuoteRequest):
 
 @router.get("/pricing/options")
 def options():
-    return pricing_options.form_options(store.get_config())
+    return pricing_options.form_options(store.get_config()) | {"maxUploadMb": settings.max_upload_mb}
 
 
 @router.post("/quote", dependencies=[Depends(limit("quote", 120, 60))])

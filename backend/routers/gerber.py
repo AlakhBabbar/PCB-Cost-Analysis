@@ -2,13 +2,14 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from backend.core.ratelimit import limit
+from backend.core.settings import settings
 from backend.core.session import session_id
 from backend.services.gerber.parser import parse_gerber_zip
 from backend.services.gerber.zipcheck import check_zip
 from backend.services.records import uploads
 
 router = APIRouter(prefix="/api/gerber", tags=["gerber"])
-MAX_BYTES = 50 * 1024 * 1024
+MAX_BYTES = settings.max_upload_mb * 1024 * 1024
 
 
 async def read_zip(file: UploadFile) -> tuple[str, bytes]:
@@ -20,7 +21,7 @@ async def read_zip(file: UploadFile) -> tuple[str, bytes]:
     if not data:
         raise HTTPException(400, "Uploaded file is empty")
     if len(data) > MAX_BYTES:
-        raise HTTPException(413, "File exceeds 50 MB")
+        raise HTTPException(413, f"This file is larger than {settings.max_upload_mb} MB.")
     try:
         check_zip(data)
     except ValueError as exc:
